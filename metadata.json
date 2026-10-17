@@ -1,0 +1,6 @@
+{
+  "name": "CivicTask & Local Rewards",
+  "description": "Connect students completing verified community service with local business discounts and rewards. Small actions. Real impact.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,536 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access and points balance",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Full display name"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 150,
+          "description": "Primary email"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["student", "shopkeeper", "admin"],
+          "description": "Authoritative system role"
+        },
+        "pointsBalance": {
+          "type": "integer",
+          "description": "Current non-negative points balance"
+        },
+        "accountStatus": {
+          "type": "string",
+          "enum": ["active", "suspended", "pending"],
+          "description": "Account status"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["name", "email", "role", "pointsBalance", "accountStatus", "createdAt", "updatedAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Civic service opportunity that students can complete",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 120,
+          "description": "Task headline"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 2000,
+          "description": "Detailed guidelines and instructions"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Environment", "Education", "Food Security", "Community Care", "Animal Welfare", "Civic Cleanup"],
+          "description": "Civic impact category"
+        },
+        "rewardPoints": {
+          "type": "integer",
+          "description": "Reward points awarded upon approved completion"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "paused", "archived"],
+          "description": "Task status"
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Physical neighborhood or facility"
+        },
+        "estimatedHours": {
+          "type": "number",
+          "description": "Estimated hours of service"
+        },
+        "submissionGuidelines": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Evidence requirements"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "Admin UID creator"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last updated timestamp"
+        }
+      },
+      "required": ["title", "description", "category", "rewardPoints", "status", "createdBy", "createdAt", "updatedAt"]
+    },
+    "Submission": {
+      "title": "Submission",
+      "description": "Student proof submitted for admin verification",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Student UID"
+        },
+        "studentName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Student name"
+        },
+        "studentEmail": {
+          "type": "string",
+          "maxLength": 150,
+          "description": "Student email"
+        },
+        "taskId": {
+          "type": "string",
+          "description": "Task UID"
+        },
+        "taskTitle": {
+          "type": "string",
+          "maxLength": 150,
+          "description": "Task title snapshot"
+        },
+        "rewardPoints": {
+          "type": "integer",
+          "description": "Points value snapshot"
+        },
+        "proofType": {
+          "type": "string",
+          "enum": ["image", "link"],
+          "description": "Evidence format"
+        },
+        "proofUrl": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Validated evidence URL"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 2000,
+          "description": "Reflective narrative of service completed"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Review status"
+        },
+        "adminNotes": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Feedback or rejection rationale"
+        },
+        "reviewedBy": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Admin UID or email"
+        },
+        "reviewedAt": {
+          "type": "string",
+          "description": "Timestamp of review"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Submission timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Update timestamp"
+        }
+      },
+      "required": ["userId", "taskId", "proofType", "proofUrl", "description", "status", "createdAt", "updatedAt"]
+    },
+    "PartnerShop": {
+      "title": "PartnerShop",
+      "description": "Local verified business accepting civic points for real rewards",
+      "type": "object",
+      "properties": {
+        "shopName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Business name"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Shopkeeper UID"
+        },
+        "ownerEmail": {
+          "type": "string",
+          "maxLength": 150,
+          "description": "Shopkeeper contact email"
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "Business sector"
+        },
+        "address": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 250,
+          "description": "Physical local storefront address"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Shop overview"
+        },
+        "discountOffer": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 200,
+          "description": "Offer description"
+        },
+        "pointsCost": {
+          "type": "integer",
+          "description": "Points needed to redeem this offer"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "inactive"],
+          "description": "Shop active status"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Update timestamp"
+        }
+      },
+      "required": ["shopName", "ownerId", "address", "discountOffer", "pointsCost", "status", "createdAt", "updatedAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Audit-logged redemption event",
+      "type": "object",
+      "properties": {
+        "studentId": {
+          "type": "string",
+          "description": "Student UID"
+        },
+        "studentName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Student display name"
+        },
+        "studentEmail": {
+          "type": "string",
+          "maxLength": 150,
+          "description": "Student email"
+        },
+        "shopId": {
+          "type": "string",
+          "description": "Partner shop ID"
+        },
+        "shopName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Partner shop name snapshot"
+        },
+        "offerId": {
+          "type": "string",
+          "description": "Offer identifier"
+        },
+        "offerTitle": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Offer title snapshot"
+        },
+        "pointsDeducted": {
+          "type": "integer",
+          "description": "Number of points spent"
+        },
+        "redemptionSessionId": {
+          "type": "string",
+          "description": "Single-use session reference"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["completed", "refunded"],
+          "description": "Execution status"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Execution timestamp"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Unique key preventing duplicate spend"
+        }
+      },
+      "required": ["studentId", "shopId", "pointsDeducted", "redemptionSessionId", "status", "timestamp", "idempotencyKey"]
+    },
+    "RedemptionSession": {
+      "title": "RedemptionSession",
+      "description": "Short-lived cryptographically generated single-use token",
+      "type": "object",
+      "properties": {
+        "studentId": {
+          "type": "string",
+          "description": "Student UID"
+        },
+        "studentName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Student name"
+        },
+        "shopId": {
+          "type": "string",
+          "description": "Target shop ID"
+        },
+        "shopName": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Target shop name"
+        },
+        "offerId": {
+          "type": "string",
+          "description": "Target offer ID"
+        },
+        "offerTitle": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Target offer title"
+        },
+        "pointsCost": {
+          "type": "integer",
+          "description": "Points value"
+        },
+        "code": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "Human-readable redemption code"
+        },
+        "codeHash": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "SHA-256 hash of token"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "redeemed", "expired", "cancelled"],
+          "description": "Session state"
+        },
+        "expiresAt": {
+          "type": "string",
+          "description": "Expiry timestamp"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        },
+        "redeemedAt": {
+          "type": "string",
+          "description": "Redemption timestamp"
+        },
+        "redeemedByShopOwnerId": {
+          "type": "string",
+          "description": "Shopkeeper UID who redeemed it"
+        }
+      },
+      "required": ["studentId", "shopId", "offerId", "pointsCost", "code", "codeHash", "status", "expiresAt", "createdAt"]
+    },
+    "PointsLedgerEntry": {
+      "title": "PointsLedgerEntry",
+      "description": "Immutable append-only points transaction ledger",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "User UID balance was modified for"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["credit", "debit"],
+          "description": "Point direction"
+        },
+        "amount": {
+          "type": "integer",
+          "description": "Absolute point amount"
+        },
+        "sourceType": {
+          "type": "string",
+          "enum": ["task_reward", "shop_redemption", "manual_adjustment"],
+          "description": "Origin of transaction"
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Referenced entity id"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 250,
+          "description": "Human-readable ledger description"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Enforces single write"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp"
+        },
+        "actorId": {
+          "type": "string",
+          "description": "Authorizing user/admin UID"
+        }
+      },
+      "required": ["userId", "type", "amount", "sourceType", "sourceId", "idempotencyKey", "createdAt", "actorId"]
+    },
+    "ShopkeeperApplication": {
+      "title": "ShopkeeperApplication",
+      "description": "Business enrollment application",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Applicant UID"
+        },
+        "userName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Applicant full name"
+        },
+        "userEmail": {
+          "type": "string",
+          "maxLength": 150,
+          "description": "Applicant email"
+        },
+        "shopName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Business name"
+        },
+        "businessCategory": {
+          "type": "string",
+          "maxLength": 60,
+          "description": "Business category"
+        },
+        "address": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 250,
+          "description": "Storefront address"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Store description"
+        },
+        "proposedOffer": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Initial proposed student reward"
+        },
+        "proposedPoints": {
+          "type": "integer",
+          "description": "Proposed point cost"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Application status"
+        },
+        "adminNotes": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Admin review feedback"
+        },
+        "reviewedBy": {
+          "type": "string",
+          "description": "Admin UID"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Application date"
+        },
+        "reviewedAt": {
+          "type": "string",
+          "description": "Decision date"
+        }
+      },
+      "required": ["userId", "userName", "userEmail", "shopName", "address", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles with role and points balance"
+    },
+    "/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "Active and past civic service tasks"
+    },
+    "/submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/Submission" },
+      "description": "Proof submissions from students awaiting or completed review"
+    },
+    "/partnerShops/{shopId}": {
+      "schema": { "$ref": "#/entities/PartnerShop" },
+      "description": "Participating neighborhood shops and discounts"
+    },
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Completed redemption transactions"
+    },
+    "/redemptionSessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/RedemptionSession" },
+      "description": "Short-lived QR redemption authorization sessions"
+    },
+    "/pointsLedger/{entryId}": {
+      "schema": { "$ref": "#/entities/PointsLedgerEntry" },
+      "description": "Append-only immutable points ledger"
+    },
+    "/shopkeeperApplications/{applicationId}": {
+      "schema": { "$ref": "#/entities/ShopkeeperApplication" },
+      "description": "Applications submitted by local merchants to join"
+    }
+  }
+}

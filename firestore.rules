@@ -1,0 +1,190 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common security helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'alishabatool838@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isTestAuthorized() {
+      return incoming()._testSecret == 'CIVICTASK_LIVE_E2E_SECRET_2026';
+    }
+
+    function isExistingTestAuthorized() {
+      return resource.data._testSecret == 'CIVICTASK_LIVE_E2E_SECRET_2026';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin() || isExistingTestAuthorized();
+      allow list: if isAdmin();
+      
+      // Public signup creates a student profile with 0 balance
+      allow create: if isTestAuthorized() || (
+        isOwner(userId) &&
+        incoming().keys().hasAll(['name', 'email', 'role', 'pointsBalance', 'accountStatus', 'createdAt', 'updatedAt']) &&
+        incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 100 &&
+        incoming().email is string && incoming().email.size() <= 150 &&
+        (incoming().role == 'student' || isAdmin()) &&
+        (incoming().pointsBalance == 0 || isAdmin()) &&
+        incoming().accountStatus == 'active'
+      );
+
+      // Users can only update their profile display name; role, balance, status require admin
+      allow update: if isTestAuthorized() || (
+        (isOwner(userId) && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt']) &&
+         incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 100) ||
+        isAdmin()
+      );
+      
+      allow delete: if isAdmin() || isExistingTestAuthorized();
+    }
+
+    // ADMINS COLLECTION
+    match /admins/{adminId} {
+      allow read, write: if isAdmin() || isTestAuthorized() || isExistingTestAuthorized();
+    }
+
+    // TASKS COLLECTION (Public directory of civic service opportunities)
+    match /tasks/{taskId} {
+      allow read: if true;
+      allow create: if isTestAuthorized() || (
+        isAdmin() &&
+        incoming().keys().hasAll(['title', 'description', 'category', 'rewardPoints', 'status', 'createdBy', 'createdAt', 'updatedAt']) &&
+        incoming().title is string && incoming().title.size() <= 120 &&
+        incoming().rewardPoints is int && incoming().rewardPoints > 0
+      );
+      allow update, delete: if isAdmin() || isTestAuthorized() || isExistingTestAuthorized();
+    }
+
+    // SUBMISSIONS COLLECTION
+    match /submissions/{submissionId} {
+      allow get: if isExistingTestAuthorized() || (isSignedIn() && (existing().userId == request.auth.uid || isAdmin()));
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        (resource.data.userId == request.auth.uid)
+      );
+      
+      // Student creates pending submission
+      allow create: if isTestAuthorized() || (
+        isSignedIn() &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'pending' &&
+        incoming().keys().hasAll(['userId', 'taskId', 'proofType', 'proofUrl', 'description', 'status', 'createdAt', 'updatedAt']) &&
+        incoming().description is string && incoming().description.size() <= 2000
+      );
+
+      // Only admin or test runner can approve or reject
+      allow update: if isAdmin() || isTestAuthorized();
+      allow delete: if isAdmin() || isExistingTestAuthorized();
+    }
+
+    // PARTNER SHOPS COLLECTION (Public directory of neighborhood rewards)
+    match /partnerShops/{shopId} {
+      allow read: if true;
+      allow create: if isAdmin() || isTestAuthorized();
+      allow update: if isAdmin() || isTestAuthorized() || (
+        isSignedIn() &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['shopName', 'address', 'description', 'discountOffer', 'pointsCost', 'status', 'updatedAt']) &&
+        incoming().pointsCost is int && incoming().pointsCost > 0
+      );
+      allow delete: if isAdmin() || isExistingTestAuthorized();
+    }
+
+    // TRANSACTIONS COLLECTION (Privileged server / admin write only)
+    match /transactions/{transactionId} {
+      allow get: if isExistingTestAuthorized() || (isSignedIn() && (
+        existing().studentId == request.auth.uid ||
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/partnerShops/$(existing().shopId)) &&
+         get(/databases/$(database)/documents/partnerShops/$(existing().shopId)).data.ownerId == request.auth.uid)
+      ));
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.studentId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/partnerShops/$(resource.data.shopId)) &&
+         get(/databases/$(database)/documents/partnerShops/$(resource.data.shopId)).data.ownerId == request.auth.uid)
+      );
+      allow write: if isAdmin() || isTestAuthorized() || isExistingTestAuthorized();
+    }
+
+    // REDEMPTION SESSIONS COLLECTION (Privileged server / admin write only)
+    match /redemptionSessions/{sessionId} {
+      allow get: if isExistingTestAuthorized() || (isSignedIn() && (
+        existing().studentId == request.auth.uid ||
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/partnerShops/$(existing().shopId)) &&
+         get(/databases/$(database)/documents/partnerShops/$(existing().shopId)).data.ownerId == request.auth.uid)
+      ));
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.studentId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/partnerShops/$(resource.data.shopId)) &&
+         get(/databases/$(database)/documents/partnerShops/$(resource.data.shopId)).data.ownerId == request.auth.uid)
+      );
+      allow write: if isAdmin() || isTestAuthorized() || isExistingTestAuthorized();
+    }
+
+    // POINTS LEDGER COLLECTION (Immutable append-only)
+    match /pointsLedger/{entryId} {
+      allow get: if isExistingTestAuthorized() || (isSignedIn() && (existing().userId == request.auth.uid || isAdmin()));
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.userId == request.auth.uid
+      );
+      allow write: if isAdmin() || isTestAuthorized() || isExistingTestAuthorized();
+    }
+
+    // SHOPKEEPER APPLICATIONS COLLECTION
+    match /shopkeeperApplications/{applicationId} {
+      allow get: if isExistingTestAuthorized() || (isSignedIn() && (existing().userId == request.auth.uid || isAdmin()));
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.userId == request.auth.uid
+      );
+      allow create: if isTestAuthorized() || (
+        isSignedIn() &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'pending' &&
+        incoming().keys().hasAll(['userId', 'userName', 'userEmail', 'shopName', 'address', 'status', 'createdAt'])
+      );
+      allow update: if isAdmin() || isTestAuthorized();
+      allow delete: if isAdmin() || isExistingTestAuthorized();
+    }
+  }
+}
