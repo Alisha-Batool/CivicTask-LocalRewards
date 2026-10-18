@@ -278,7 +278,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     async function getAuthoritativeUser() {
       const userSnap = await getDoc(doc(db, 'users', authUser!.uid));
       if (!userSnap.exists()) return null;
-      return userSnap.data() as { role: string; pointsBalance: number; name: string; email: string };
+      return userSnap.data() as { role: string; pointsBalance: number; name: string; email: string; accountStatus?: string };
     }
 
     // 3. Create Task (Admin Only)
@@ -342,6 +342,10 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       const profile = await getAuthoritativeUser();
       if (!profile) {
         sendJson(res, 403, { error: 'User profile not found.' });
+        return true;
+      }
+      if (profile.accountStatus === 'suspended') {
+        sendJson(res, 403, { error: 'Forbidden: Suspended accounts cannot submit task proof.' });
         return true;
       }
 
@@ -504,6 +508,10 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         sendJson(res, 403, { error: 'Student profile not found.' });
         return true;
       }
+      if (profile.accountStatus === 'suspended') {
+        sendJson(res, 403, { error: 'Forbidden: Suspended accounts cannot generate redemption tokens.' });
+        return true;
+      }
 
       const body = await parseBody(req);
       const parsed = CreateRedemptionSessionSchema.safeParse(body);
@@ -576,6 +584,10 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       const profile = await getAuthoritativeUser();
       if (!profile || (profile.role !== 'shopkeeper' && profile.role !== 'admin')) {
         sendJson(res, 403, { error: 'Forbidden: Merchant access required to validate redemption codes.' });
+        return true;
+      }
+      if (profile.role === 'shopkeeper' && profile.accountStatus !== 'active') {
+        sendJson(res, 403, { error: 'Forbidden: Merchant account is suspended or pending approval.' });
         return true;
       }
 
@@ -651,6 +663,10 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       const profile = await getAuthoritativeUser();
       if (!profile || (profile.role !== 'shopkeeper' && profile.role !== 'admin')) {
         sendJson(res, 403, { error: 'Forbidden: Merchant access required to confirm redemption.' });
+        return true;
+      }
+      if (profile.role === 'shopkeeper' && profile.accountStatus !== 'active') {
+        sendJson(res, 403, { error: 'Forbidden: Merchant account is suspended or pending approval.' });
         return true;
       }
 
@@ -911,6 +927,14 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     // 12. Update Shop Details (Shopkeeper or Admin)
     if (endpoint === '/api/merchant/update' && req.method === 'POST') {
       const profile = await getAuthoritativeUser();
+      if (!profile || (profile.role !== 'shopkeeper' && profile.role !== 'admin')) {
+        sendJson(res, 403, { error: 'Forbidden: Merchant access required to update storefront.' });
+        return true;
+      }
+      if (profile.role === 'shopkeeper' && profile.accountStatus !== 'active') {
+        sendJson(res, 403, { error: 'Forbidden: Merchant account is suspended or pending approval.' });
+        return true;
+      }
       const body = await parseBody(req);
       const parsed = UpdateShopSchema.safeParse(body);
       if (!parsed.success) {

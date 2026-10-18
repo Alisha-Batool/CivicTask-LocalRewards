@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
 import { X, Lock, Mail, User, ShieldCheck } from 'lucide-react';
@@ -17,6 +17,15 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -62,16 +71,21 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-modal-title"
+    >
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
         
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">
+            <h2 id="auth-modal-title" className="text-xl font-bold text-slate-900">
               {mode === 'signin' ? 'Sign in to CivicTask' : 'Create Student Account'}
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-600 mt-0.5">
               {mode === 'signin' 
                 ? 'Access your tasks, wallet, and local rewards'
                 : 'Start completing verified service tasks and earn rewards'}
@@ -79,8 +93,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg transition-colors"
-            aria-label="Close"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none"
+            aria-label="Close authentication modal"
           >
             <X className="w-5 h-5" />
           </button>
@@ -92,9 +106,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={isSubmitting}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl border border-slate-300 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60"
+            className="w-full min-h-[44px] flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl border border-slate-300 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-60"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 fill="#4285F4"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -117,7 +131,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
           <div className="relative flex items-center justify-center">
             <div className="border-t border-slate-200 w-full"></div>
-            <span className="bg-white px-3 text-xs text-slate-400 uppercase tracking-wider font-medium">
+            <span className="bg-white px-3 text-xs text-slate-500 uppercase tracking-wider font-medium">
               or with email
             </span>
           </div>
@@ -126,53 +140,56 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <form onSubmit={handleEmailAuth} className="space-y-4">
             {mode === 'signup' && (
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="auth-full-name" className="block text-xs font-semibold text-slate-800 mb-1">
                   Full Name
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                   <input
+                    id="auth-full-name"
                     type="text"
                     required
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
                     placeholder="e.g. Jordan Miller"
-                    className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all"
+                    className="w-full min-h-[44px] pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-700 transition-all"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="auth-email" className="block text-xs font-semibold text-slate-800 mb-1">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                 <input
+                  id="auth-email"
                   type="email"
                   required
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="student@university.edu"
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all"
+                  className="w-full min-h-[44px] pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-700 transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="auth-password" className="block text-xs font-semibold text-slate-800 mb-1">
                 Password
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
                 <input
+                  id="auth-password"
                   type="password"
                   required
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all"
+                  className="w-full min-h-[44px] pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-700 transition-all"
                 />
               </div>
             </div>
@@ -180,7 +197,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold rounded-xl shadow transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-60 flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none"
             >
               {isSubmitting ? 'Authenticating...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
             </button>
@@ -194,7 +211,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 <button
                   type="button"
                   onClick={() => setMode('signup')}
-                  className="text-emerald-700 font-semibold hover:underline"
+                  className="text-emerald-800 font-semibold hover:underline min-h-[36px] px-1 focus-visible:ring-2 focus-visible:ring-emerald-600 rounded outline-none"
                 >
                   Create an account
                 </button>
@@ -205,7 +222,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 <button
                   type="button"
                   onClick={() => setMode('signin')}
-                  className="text-emerald-700 font-semibold hover:underline"
+                  className="text-emerald-800 font-semibold hover:underline min-h-[36px] px-1 focus-visible:ring-2 focus-visible:ring-emerald-600 rounded outline-none"
                 >
                   Sign in
                 </button>
@@ -213,8 +230,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             )}
           </div>
 
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/80 flex items-start gap-2 text-xs text-slate-500">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-start gap-2 text-xs text-slate-600">
+            <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
             <span>
               Secure role-based authentication powered by Firebase Auth. Public registrations create verified student accounts.
             </span>

@@ -9,12 +9,13 @@ interface SeedBannerProps {
 }
 
 export function SeedBanner({ onSeeded }: SeedBannerProps) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { success, error } = useToast();
   const [isSeeding, setIsSeeding] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  if (dismissed || !user) return null;
+  // Restrict administrative seeding exclusively to authorized administrators
+  if (dismissed || !user || role !== 'admin') return null;
 
   const handleSeed = async () => {
     try {

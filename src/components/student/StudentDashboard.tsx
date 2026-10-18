@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
+import React, { useState, useEffect, useCallback } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import { db } from '../../lib/firebase.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
 import { apiFetch } from '../../lib/api-client.ts';
-import { CivicTask, TaskSubmission, PartnerShop, PointsLedgerEntry, TaskCategory } from '../../lib/types.ts';
+import { CivicTask, TaskSubmission, PartnerShop, PointsLedgerEntry } from '../../lib/types.ts';
 import { handleFirestoreError, OperationType } from '../../lib/error-handler.ts';
 import { 
   Coins, 
@@ -14,18 +14,18 @@ import {
   Clock, 
   Award, 
   Search, 
-  Filter, 
   ArrowUpRight, 
   Upload, 
   Link as LinkIcon, 
   Store, 
   QrCode, 
-  Calendar, 
   MapPin, 
   FileText, 
   AlertCircle,
   X,
-  Sparkles
+  Sparkles,
+  HelpCircle,
+  RotateCcw
 } from 'lucide-react';
 
 interface StudentDashboardProps {
@@ -33,7 +33,7 @@ interface StudentDashboardProps {
 }
 
 export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps) {
-  const { user, profile, pointsBalance } = useAuth();
+  const { user, pointsBalance } = useAuth();
   const { success, error } = useToast();
 
   const [activeTab, setActiveTab] = useState<'tasks' | 'submissions' | 'wallet' | 'marketplace'>('tasks');
@@ -55,7 +55,10 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  // QR Redemption Modal State
+  // Redemption Confirmation Modal State
+  const [confirmingShop, setConfirmingShop] = useState<PartnerShop | null>(null);
+
+  // QR Redemption Active Modal State
   const [activeRedemption, setActiveRedemption] = useState<{
     sessionId: string;
     code: string;
@@ -66,6 +69,24 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
   } | null>(null);
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
+
+  // Global escape key handler for active modals
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      if (confirmingShop) setConfirmingShop(null);
+      if (selectedTask) {
+        setSelectedTask(null);
+        setImagePreview(null);
+        setProofUrl('');
+      }
+      if (activeRedemption) setActiveRedemption(null);
+    }
+  }, [confirmingShop, selectedTask, activeRedemption]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   // Real-time listener for tasks
   useEffect(() => {
@@ -82,6 +103,7 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
       },
       (err) => {
         handleFirestoreError(err, OperationType.LIST, 'tasks');
+        setLoading(false);
       }
     );
     return () => unsubscribe();
@@ -98,7 +120,6 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
         snapshot.forEach((doc) => {
           list.push({ id: doc.id, ...doc.data() } as TaskSubmission);
         });
-        // Sort newest first
         list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setSubmissions(list);
       },
@@ -172,7 +193,7 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
 
     const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowedMimeTypes.includes(file.type)) {
-      error('Invalid file format. Allowed types: JPEG, PNG, or WebP.');
+      error('Invalid file format. Please upload JPEG, PNG, or WebP.');
       return;
     }
 
@@ -196,7 +217,7 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
     if (!selectedTask) return;
 
     if (!proofUrl.trim()) {
-      error('Please provide image proof or an HTTPS proof link.');
+      error('Please provide photo evidence or an HTTPS proof link.');
       return;
     }
 
@@ -231,10 +252,14 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
     }
   };
 
-  // Request QR Redemption
-  const handleRequestRedemption = async (shop: PartnerShop) => {
+  // Request QR Redemption after confirmation
+  const handleExecuteRedemption = async () => {
+    if (!confirmingShop) return;
+    const shop = confirmingShop;
+
     if (pointsBalance < shop.pointsCost) {
       error(`You need ${shop.pointsCost} points for this reward, but have ${pointsBalance}.`);
+      setConfirmingShop(null);
       return;
     }
 
@@ -257,6 +282,7 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
         }),
       });
 
+      setConfirmingShop(null);
       setActiveRedemption({
         sessionId: res.session.id,
         code: res.session.code,
@@ -297,69 +323,69 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
       
       {/* 4 Overview Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex items-center justify-between text-slate-600 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Available Balance</span>
-            <Coins className="w-4 h-4 text-emerald-600" />
+            <Coins className="w-4 h-4 text-emerald-700" />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
               {pointsBalance.toLocaleString()}
             </span>
-            <span className="text-xs font-bold text-emerald-700">pts</span>
+            <span className="text-xs font-bold text-emerald-800">pts</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">Ready to redeem at local shops</p>
+          <p className="text-xs text-slate-600 mt-1">Ready to redeem at local shops</p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex items-center justify-between text-slate-600 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Approved Tasks</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-700" />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
               {approvedCount}
             </span>
-            <span className="text-xs text-slate-500">verified</span>
+            <span className="text-xs text-slate-600">verified</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">Direct community impact</p>
+          <p className="text-xs text-slate-600 mt-1">Direct community impact</p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex items-center justify-between text-slate-600 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Under Review</span>
-            <Clock className="w-4 h-4 text-amber-500" />
+            <Clock className="w-4 h-4 text-amber-600" />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
               {pendingCount}
             </span>
-            <span className="text-xs text-amber-600">in review</span>
+            <span className="text-xs text-amber-700 font-semibold">in review</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">Awaiting admin verification</p>
+          <p className="text-xs text-slate-600 mt-1">Awaiting admin verification</p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex items-center justify-between text-slate-600 mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider">Service Hours</span>
-            <Award className="w-4 h-4 text-blue-600" />
+            <Award className="w-4 h-4 text-blue-700" />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
               {estimatedHoursTotal}
             </span>
-            <span className="text-xs text-slate-500">hours</span>
+            <span className="text-xs text-slate-600">hours</span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">Civic contribution total</p>
+          <p className="text-xs text-slate-600 mt-1">Civic contribution total</p>
         </div>
       </div>
 
       {/* Tab Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-3">
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveTab('tasks')}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+            className={`min-h-[40px] px-4 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none ${
               activeTab === 'tasks' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -367,7 +393,7 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
           </button>
           <button
             onClick={() => setActiveTab('submissions')}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+            className={`min-h-[40px] px-4 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none ${
               activeTab === 'submissions' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -375,15 +401,15 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
           </button>
           <button
             onClick={() => setActiveTab('marketplace')}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+            className={`min-h-[40px] px-4 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none ${
               activeTab === 'marketplace' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Local Rewards Marketplace ({shops.length})
+            Local Rewards ({shops.length})
           </button>
           <button
             onClick={() => setActiveTab('wallet')}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+            className={`min-h-[40px] px-4 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none ${
               activeTab === 'wallet' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -393,10 +419,10 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
 
         <button
           onClick={onOpenMerchantApply}
-          className="text-xs font-semibold text-slate-600 hover:text-emerald-700 flex items-center gap-1.5 transition-colors"
+          className="min-h-[40px] text-xs font-semibold text-slate-700 hover:text-emerald-800 flex items-center gap-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-emerald-600 rounded-lg px-2 outline-none"
         >
-          <Store className="w-3.5 h-3.5" />
-          <span>Apply to register local business</span>
+          <Store className="w-3.5 h-3.5 text-blue-700" />
+          <span>Apply to register local business &rarr;</span>
         </button>
       </div>
 
@@ -406,26 +432,29 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
           {/* Search & Category Filter */}
           <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
             <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
               <input
                 type="text"
+                aria-label="Search volunteer opportunities"
                 placeholder="Search volunteer opportunities..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all"
+                className="w-full pl-9 pr-4 py-2.5 bg-white text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-700 transition-all"
               />
             </div>
 
             {/* Category Segmented Control */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 max-w-full">
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 max-w-full" role="tablist" aria-label="Task categories">
               {['All', 'Environment', 'Education', 'Food Security', 'Community Care', 'Civic Cleanup'].map(cat => (
                 <button
                   key={cat}
+                  role="tab"
+                  aria-selected={selectedCategory === cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-colors ${
+                  className={`min-h-[38px] px-3.5 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none ${
                     selectedCategory === cat 
                       ? 'bg-emerald-800 text-white shadow-xs' 
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'
                   }`}
                 >
                   {cat}
@@ -434,16 +463,55 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
             </div>
           </div>
 
-          {/* Tasks Grid */}
-          {filteredTasks.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200">
-              <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-              <h3 className="text-sm font-semibold text-slate-800">No active civic tasks found</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Try clearing search filters or seed sample tasks from the top evaluator banner.
+          {/* Loading Skeletons */}
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                  <div className="h-44 w-full bg-slate-200" />
+                  <div className="p-5 space-y-3">
+                    <div className="flex justify-between">
+                      <div className="h-3 w-20 bg-slate-200 rounded" />
+                      <div className="h-3 w-12 bg-slate-200 rounded" />
+                    </div>
+                    <div className="h-5 w-3/4 bg-slate-200 rounded" />
+                    <div className="h-3 w-full bg-slate-200 rounded" />
+                    <div className="h-3 w-5/6 bg-slate-200 rounded" />
+                    <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
+                      <div className="h-4 w-16 bg-slate-200 rounded" />
+                      <div className="h-8 w-24 bg-slate-200 rounded-lg" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            /* Domain-Grounded Empty State */
+            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs max-w-md mx-auto space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
+                <Search className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900">No matching civic tasks</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {searchQuery || selectedCategory !== 'All' 
+                  ? 'No volunteer opportunities match your current filter criteria.' 
+                  : 'There are currently no active civic tasks. Initialize sample tasks using the banner above.'}
               </p>
+              {(searchQuery || selectedCategory !== 'All') && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategory('All');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors mt-2"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Filters</span>
+                </button>
+              )}
             </div>
           ) : (
+            /* Tasks Grid */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredTasks.map(task => {
                 const alreadySubmitted = submissions.some(
@@ -462,19 +530,23 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                             src={task.imageUrl}
                             alt={task.title}
                             referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
                           />
                         </div>
                       )}
 
                       <div className="p-5 space-y-3">
-                        <div className="flex items-center justify-between text-xs text-slate-500">
+                        {/* Unboxed metadata with quiet separator */}
+                        <div className="flex items-center gap-2 text-xs text-slate-600">
                           <span className="font-semibold text-emerald-800">{task.category}</span>
                           {task.estimatedHours && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3.5 h-3.5 text-slate-400" />
-                              <span>{task.estimatedHours} hrs</span>
-                            </span>
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="flex items-center gap-1 font-mono tabular-nums">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                <span>{task.estimatedHours} hrs</span>
+                              </span>
+                            </>
                           )}
                         </div>
 
@@ -487,7 +559,7 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                         </p>
 
                         {task.location && (
-                          <div className="flex items-center gap-1.5 text-xs text-slate-500 pt-1">
+                          <div className="flex items-center gap-1.5 text-xs text-slate-600 pt-1">
                             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span className="truncate">{task.location}</span>
                           </div>
@@ -496,23 +568,23 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                     </div>
 
                     <div className="p-5 pt-0 mt-3 border-t border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-1 font-bold text-emerald-700 text-sm tabular-nums">
-                        <Coins className="w-4 h-4 text-emerald-600" />
+                      <div className="flex items-center gap-1 font-bold text-emerald-800 text-sm tabular-nums">
+                        <Coins className="w-4 h-4 text-emerald-700" />
                         <span>+{task.rewardPoints} pts</span>
                       </div>
 
                       <button
                         onClick={() => setSelectedTask(task)}
                         disabled={alreadySubmitted}
-                        className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 ${
+                        className={`min-h-[40px] px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none ${
                           alreadySubmitted
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200 cursor-not-allowed'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200 cursor-not-allowed'
                             : 'bg-slate-900 hover:bg-slate-800 text-white'
                         }`}
                       >
                         {alreadySubmitted ? (
                           <>
-                            <Clock className="w-3 h-3" />
+                            <Clock className="w-3.5 h-3.5" />
                             <span>Pending Review</span>
                           </>
                         ) : (
@@ -535,12 +607,20 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
       {activeTab === 'submissions' && (
         <div className="space-y-4">
           {submissions.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200">
-              <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-              <h3 className="text-sm font-semibold text-slate-800">No submissions yet</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Browse available opportunities above and submit evidence after volunteering!
+            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs max-w-md mx-auto space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto">
+                <FileText className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900">No submissions yet</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                After participating in a local volunteer initiative, upload photo proof or a verification link to receive points.
               </p>
+              <button
+                onClick={() => setActiveTab('tasks')}
+                className="min-h-[40px] px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors mt-2"
+              >
+                Browse Civic Opportunities
+              </button>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs divide-y divide-slate-100">
@@ -549,14 +629,14 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <h4 className="text-sm font-bold text-slate-900">{sub.taskTitle}</h4>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-600 font-mono tabular-nums">
                         Submitted {new Date(sub.createdAt).toLocaleDateString()} at{' '}
                         {new Date(sub.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-emerald-700 tabular-nums">
+                      <span className="text-xs font-bold text-emerald-800 tabular-nums">
                         +{sub.rewardPoints} pts
                       </span>
                       <span
@@ -584,7 +664,7 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                         href={sub.proofUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-emerald-700 hover:underline flex items-center gap-1 font-medium"
+                        className="text-emerald-800 hover:underline flex items-center gap-1 font-medium"
                       >
                         <LinkIcon className="w-3.5 h-3.5" />
                         <span>View Verified Proof Document</span>
@@ -598,7 +678,7 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                             referrerPolicy="no-referrer"
                             className="w-12 h-12 object-cover rounded-md border border-slate-200"
                           />
-                          <span className="text-slate-500">Image evidence attached</span>
+                          <span className="text-slate-600">Photo evidence attached</span>
                         </div>
                       )
                     )}
@@ -623,10 +703,10 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
         <div className="space-y-6">
           <div className="bg-emerald-900 text-white rounded-2xl p-6 relative overflow-hidden">
             <div className="relative z-10 max-w-xl space-y-2">
-              <span className="text-xs font-semibold text-emerald-300 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-emerald-300 uppercase tracking-wider block">
                 Neighborhood Commerce Network
               </span>
-              <h3 className="text-xl font-bold tracking-tight">
+              <h3 className="text-xl font-bold tracking-tight text-white">
                 Exchange your civic service points for real neighborhood rewards
               </h3>
               <p className="text-xs text-emerald-100 leading-relaxed">
@@ -635,110 +715,132 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {shops.map(shop => {
-              const canAfford = pointsBalance >= shop.pointsCost;
+          {shops.length === 0 ? (
+            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs max-w-md mx-auto space-y-3">
+              <Store className="w-8 h-8 text-slate-400 mx-auto" />
+              <h3 className="text-base font-bold text-slate-900">No partner shops available</h3>
+              <p className="text-xs text-slate-600">
+                Are you a local business owner? Enroll your storefront to accept CivicTask student reward points.
+              </p>
+              <button
+                onClick={onOpenMerchantApply}
+                className="min-h-[40px] px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors mt-2"
+              >
+                Apply as a Local Partner
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {shops.map(shop => {
+                const canAfford = pointsBalance >= shop.pointsCost;
 
-              return (
-                <div
-                  key={shop.id}
-                  className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300 transition-all overflow-hidden flex flex-col justify-between shadow-xs group"
-                >
-                  <div>
-                    {shop.imageUrl && (
-                      <div className="h-44 w-full bg-slate-100 overflow-hidden">
-                        <img
-                          src={shop.imageUrl}
-                          alt={shop.shopName}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                    )}
-
-                    <div className="p-5 space-y-3">
-                      <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span className="font-semibold text-blue-700">{shop.category || 'Local Business'}</span>
-                        <span className="font-mono font-bold text-slate-900 tabular-nums">
-                          {shop.pointsCost} pts required
-                        </span>
-                      </div>
-
-                      <h3 className="text-base font-bold text-slate-900">
-                        {shop.shopName}
-                      </h3>
-
-                      <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-900 text-xs font-semibold">
-                        {shop.discountOffer}
-                      </div>
-
-                      <p className="text-xs text-slate-600 line-clamp-2">
-                        {shop.description}
-                      </p>
-
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500 pt-1">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{shop.address}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-5 pt-0 mt-3 border-t border-slate-100 flex items-center justify-between">
-                    <div className="text-xs text-slate-500">
-                      {canAfford ? (
-                        <span className="text-emerald-700 font-semibold">Eligible to Redeem</span>
-                      ) : (
-                        <span className="text-slate-400">Need {shop.pointsCost - pointsBalance} more pts</span>
+                return (
+                  <div
+                    key={shop.id}
+                    className="bg-white rounded-2xl border border-slate-200 hover:border-slate-300 transition-all overflow-hidden flex flex-col justify-between shadow-xs group"
+                  >
+                    <div>
+                      {shop.imageUrl && (
+                        <div className="h-44 w-full bg-slate-100 overflow-hidden">
+                          <img
+                            src={shop.imageUrl}
+                            alt={shop.shopName}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                          />
+                        </div>
                       )}
+
+                      <div className="p-5 space-y-3">
+                        <div className="flex items-center justify-between text-xs text-slate-600">
+                          <span className="font-semibold text-blue-700">{shop.category || 'Local Business'}</span>
+                          <span className="font-mono font-bold text-slate-900 tabular-nums">
+                            {shop.pointsCost} pts required
+                          </span>
+                        </div>
+
+                        <h3 className="text-base font-bold text-slate-900">
+                          {shop.shopName}
+                        </h3>
+
+                        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-900 text-xs font-semibold">
+                          {shop.discountOffer}
+                        </div>
+
+                        <p className="text-xs text-slate-600 line-clamp-2">
+                          {shop.description}
+                        </p>
+
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600 pt-1">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{shop.address}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <button
-                      onClick={() => handleRequestRedemption(shop)}
-                      disabled={!canAfford || isGeneratingQr}
-                      className={`px-3.5 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs ${
-                        canAfford
-                          ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
-                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                      }`}
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span>{isGeneratingQr ? 'Generating...' : 'Redeem QR'}</span>
-                    </button>
+                    <div className="p-5 pt-0 mt-3 border-t border-slate-100 flex items-center justify-between">
+                      <div className="text-xs text-slate-600">
+                        {canAfford ? (
+                          <span className="text-emerald-800 font-semibold">Eligible to Redeem</span>
+                        ) : (
+                          <span className="text-slate-500 font-mono tabular-nums">Need {shop.pointsCost - pointsBalance} more pts</span>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => setConfirmingShop(shop)}
+                        disabled={!canAfford || isGeneratingQr}
+                        className={`min-h-[40px] px-3.5 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none ${
+                          canAfford
+                            ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        }`}
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                        <span>Redeem Reward</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {/* TAB 4: POINTS WALLET & AUDIT LEDGER */}
       {activeTab === 'wallet' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-slate-900">Immutable Points Ledger</h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-600">
                 Auditable chronological record of all service credits and reward debits
               </p>
             </div>
-            <div className="text-xs font-semibold text-slate-600 tabular-nums">
-              Current Balance: <strong className="text-emerald-700 text-sm">{pointsBalance} pts</strong>
+            <div className="text-xs font-semibold text-slate-700 tabular-nums">
+              Current Balance: <strong className="text-emerald-800 text-sm">{pointsBalance.toLocaleString()} pts</strong>
             </div>
           </div>
 
           {ledgerEntries.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200">
-              <Coins className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-              <h3 className="text-sm font-semibold text-slate-800">No ledger transactions yet</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Points earned through approved service tasks and redeemed at local merchants will appear here.
+            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs max-w-md mx-auto space-y-3">
+              <Coins className="w-8 h-8 text-slate-400 mx-auto" />
+              <h3 className="text-base font-bold text-slate-900">No ledger transactions yet</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Points earned through approved service tasks and redeemed at local merchants will appear here with cryptographic transaction hashes.
               </p>
+              <button
+                onClick={() => setActiveTab('tasks')}
+                className="min-h-[40px] px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors mt-2"
+              >
+                Find Tasks to Earn Points
+              </button>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto shadow-xs">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
                   <tr>
                     <th className="px-5 py-3">Timestamp</th>
                     <th className="px-5 py-3">Type</th>
@@ -750,7 +852,7 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {ledgerEntries.map(entry => (
                     <tr key={entry.id} className="hover:bg-slate-50/50">
-                      <td className="px-5 py-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
+                      <td className="px-5 py-3 whitespace-nowrap text-slate-600 font-mono text-[11px] tabular-nums">
                         {new Date(entry.createdAt).toLocaleDateString()} {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="px-5 py-3 whitespace-nowrap">
@@ -765,10 +867,10 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                         </span>
                       </td>
                       <td className="px-5 py-3">{entry.description}</td>
-                      <td className="px-5 py-3 font-mono text-[11px] text-slate-500">
+                      <td className="px-5 py-3 font-mono text-[11px] text-slate-600">
                         {entry.sourceType}
                       </td>
-                      <td className={`px-5 py-3 text-right font-bold tabular-nums ${
+                      <td className={`px-5 py-3 text-right font-bold tabular-nums font-mono ${
                         entry.type === 'credit' ? 'text-emerald-700' : 'text-rose-700'
                       }`}>
                         {entry.type === 'credit' ? `+${entry.amount}` : `-${entry.amount}`}
@@ -782,16 +884,99 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
         </div>
       )}
 
+      {/* CONFIRMATION DIALOG: REDEEM REWARD */}
+      {confirmingShop && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-reward-title"
+        >
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-emerald-800">
+                <QrCode className="w-5 h-5 text-emerald-700" />
+                <h3 id="confirm-reward-title" className="text-base font-bold text-slate-900">
+                  Confirm Reward Redemption
+                </h3>
+              </div>
+              <button 
+                onClick={() => setConfirmingShop(null)} 
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none"
+                aria-label="Close dialog"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-700">
+              <p className="leading-relaxed">
+                You are about to generate a single-use redemption QR token for:
+              </p>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-slate-600">Store:</span>
+                  <span className="font-bold text-slate-900">{confirmingShop.shopName}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-slate-600">Discount Offer:</span>
+                  <span className="font-bold text-emerald-800">{confirmingShop.discountOffer}</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-slate-200 pt-1.5">
+                  <span className="font-semibold text-slate-600">Cost:</span>
+                  <span className="font-mono font-bold text-rose-700 tabular-nums">-{confirmingShop.pointsCost} points</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-slate-600">Balance after scan:</span>
+                  <span className="font-mono font-bold text-emerald-800 tabular-nums">
+                    {(pointsBalance - confirmingShop.pointsCost).toLocaleString()} points
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-500 leading-normal">
+                Notice: The generated token expires in 15 minutes. Points are only deducted when the merchant scans and confirms the discount.
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmingShop(null)}
+                className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 rounded-lg focus-visible:ring-2 focus-visible:ring-slate-400 outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteRedemption}
+                disabled={isGeneratingQr}
+                className="min-h-[44px] px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none disabled:opacity-60"
+              >
+                <QrCode className="w-4 h-4" />
+                <span>{isGeneratingQr ? 'Creating Token...' : 'Confirm & Generate QR Token'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PROOF SUBMISSION MODAL */}
       {selectedTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] flex flex-col">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="submit-proof-title"
+        >
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 id="submit-proof-title" className="text-base font-bold text-slate-900">
                   Submit Verification Proof
                 </h3>
-                <p className="text-xs text-slate-500 truncate max-w-sm">
+                <p className="text-xs text-slate-600 truncate max-w-sm">
                   {selectedTask.title}
                 </p>
               </div>
@@ -801,26 +986,27 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                   setImagePreview(null);
                   setProofUrl('');
                 }}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSubmitProof} className="p-6 overflow-y-auto space-y-4">
-              <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs text-emerald-900 space-y-1">
-                <span className="font-bold flex items-center gap-1">
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-950 space-y-1">
+                <span className="font-bold flex items-center gap-1 text-emerald-900">
                   <Coins className="w-3.5 h-3.5 text-emerald-700" />
                   Earn +{selectedTask.rewardPoints} Points upon Admin Approval
                 </span>
-                <p className="text-emerald-800/90 leading-relaxed">
+                <p className="text-emerald-900/90 leading-relaxed">
                   Guidelines: {selectedTask.submissionGuidelines || 'Upload a photo showing your service in action or a volunteer sign-in document.'}
                 </p>
               </div>
 
               {/* Evidence Type Switcher */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-800 mb-1.5">
                   Proof Format
                 </label>
                 <div className="flex gap-2">
@@ -831,13 +1017,13 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                       setProofUrl('');
                       setImagePreview(null);
                     }}
-                    className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
+                    className={`flex-1 min-h-[40px] py-2 text-xs font-semibold rounded-lg border transition-all focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none ${
                       proofType === 'image'
                         ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                     }`}
                   >
-                    Image Upload (JPEG, PNG, WebP)
+                    Photo Upload (JPEG, PNG, WebP)
                   </button>
                   <button
                     type="button"
@@ -846,10 +1032,10 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                       setProofUrl('');
                       setImagePreview(null);
                     }}
-                    className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all ${
+                    className={`flex-1 min-h-[40px] py-2 text-xs font-semibold rounded-lg border transition-all focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none ${
                       proofType === 'link'
                         ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                     }`}
                   >
                     HTTPS Evidence Link
@@ -860,11 +1046,12 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
               {/* Image Upload Input */}
               {proofType === 'image' && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="photo-file-input" className="block text-xs font-semibold text-slate-800 mb-1">
                     Upload Photo Evidence (Max 5MB)
                   </label>
                   <div className="border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-xl p-4 text-center cursor-pointer transition-colors relative bg-slate-50">
                     <input
+                      id="photo-file-input"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
                       onChange={handleImageFileChange}
@@ -877,17 +1064,17 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                           alt="Proof preview"
                           className="h-36 mx-auto object-contain rounded-lg border border-slate-200"
                         />
-                        <p className="text-[11px] text-emerald-700 font-semibold">
+                        <p className="text-[11px] text-emerald-800 font-semibold">
                           Click to select a different image
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-1.5 py-4">
-                        <Upload className="w-6 h-6 text-slate-400 mx-auto" />
-                        <p className="text-xs font-semibold text-slate-700">
+                        <Upload className="w-6 h-6 text-slate-500 mx-auto" />
+                        <p className="text-xs font-semibold text-slate-800">
                           Click to choose or drag &amp; drop photo
                         </p>
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-[11px] text-slate-600">
                           Supports JPEG, PNG, WebP up to 5 MB
                         </p>
                       </div>
@@ -899,18 +1086,19 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
               {/* Link Input */}
               {proofType === 'link' && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label htmlFor="proof-link-input" className="block text-xs font-semibold text-slate-800 mb-1">
                     Secure HTTPS Document Link
                   </label>
                   <input
+                    id="proof-link-input"
                     type="url"
                     required
                     placeholder="https://drive.google.com/... or https://..."
                     value={proofUrl}
                     onChange={e => setProofUrl(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all"
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-700 transition-all"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-[11px] text-slate-600 mt-1">
                     Must start with https:// (e.g. verified volunteer sign-off certificate or portfolio)
                   </p>
                 </div>
@@ -918,16 +1106,17 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
 
               {/* Reflection / Description */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label htmlFor="service-description-input" className="block text-xs font-semibold text-slate-800 mb-1">
                   Service Reflection &amp; Evidence Details
                 </label>
                 <textarea
+                  id="service-description-input"
                   rows={3}
                   required
                   placeholder="Describe the activities you completed, challenges addressed, and community outcomes achieved..."
                   value={submissionDescription}
                   onChange={e => setSubmissionDescription(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-700 transition-all"
                 />
               </div>
 
@@ -935,14 +1124,14 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
                 <button
                   type="button"
                   onClick={() => setSelectedTask(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
+                  className="min-h-[40px] px-4 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 rounded-lg focus-visible:ring-2 focus-visible:ring-slate-400 outline-none"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                  className="min-h-[40px] px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-60 flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none"
                 >
                   {isSubmitting ? 'Verifying & Submitting...' : 'Submit to Moderation Queue'}
                 </button>
@@ -954,36 +1143,42 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
 
       {/* ACTIVE REDEMPTION QR CODE MODAL */}
       {activeRedemption && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden p-6 text-center space-y-4">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="active-token-title"
+        >
+          <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden p-6 text-center space-y-4">
             
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5" />
+              <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
                 Live Single-Use Token
               </span>
               <button
                 onClick={() => setActiveRedemption(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none"
+                aria-label="Close modal"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 id="active-token-title" className="text-base font-bold text-slate-900">
                 {activeRedemption.shopName}
               </h3>
-              <p className="text-xs text-slate-600 font-medium mt-0.5">
+              <p className="text-xs text-slate-700 font-medium mt-0.5">
                 {activeRedemption.offerTitle}
               </p>
-              <p className="text-xs font-bold text-emerald-700 mt-1 tabular-nums">
+              <p className="text-xs font-bold text-emerald-800 mt-1 tabular-nums font-mono">
                 {activeRedemption.pointsCost} Points
               </p>
             </div>
 
             {/* QR Code Container */}
-            <div className="p-4 bg-white rounded-2xl border-2 border-slate-200 inline-block shadow-sm">
+            <div className="p-4 bg-white rounded-2xl border-2 border-slate-200 inline-block shadow-xs">
               <QRCodeSVG
                 value={activeRedemption.code}
                 size={190}
@@ -994,7 +1189,7 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
 
             {/* Manual Code Fallback */}
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-0.5">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">
+              <span className="text-[10px] text-slate-600 uppercase tracking-wider font-semibold block">
                 Manual Redemption Code
               </span>
               <span className="font-mono font-extrabold text-lg text-slate-900 tracking-wider">
@@ -1003,14 +1198,14 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
             </div>
 
             {/* Expiry Countdown */}
-            <div className="text-xs font-semibold text-slate-600 flex items-center justify-center gap-1.5 tabular-nums">
-              <Clock className="w-3.5 h-3.5 text-amber-500" />
+            <div className="text-xs font-semibold text-slate-700 flex items-center justify-center gap-1.5 tabular-nums">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
               <span>
                 Expires in {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
               </span>
             </div>
 
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-600 leading-normal">
               Present this code to the merchant. Points will only be deducted when the shopkeeper confirms the scan.
             </p>
           </div>

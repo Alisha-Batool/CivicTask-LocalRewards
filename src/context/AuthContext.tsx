@@ -7,7 +7,8 @@ import {
   createUserWithEmailAndPassword, 
   signOut,
   updateProfile,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase.ts';
@@ -26,6 +27,7 @@ interface AuthContextType {
   signUpWithEmail: (e: string, p: string, n: string) => Promise<void>;
   signOutUser: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(res.profile);
       }
     } catch (err) {
-      console.error('Failed to sync authoritative profile from server:', err);
+      console.warn('Profile sync note:', err);
     }
   }, []);
 
@@ -55,8 +57,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // First sync profile with server (to trigger admin bootstrap and database check)
-        await syncProfile(currentUser);
+        // Sync profile with authoritative backend server
+        try {
+          await syncProfile(currentUser);
+        } catch (err) {
+          console.warn('Initial sync warning:', err);
+        }
 
         // Attach real-time Firestore listener for live point balance & role updates
         const userDocRef = doc(db, 'users', currentUser.uid);
@@ -70,11 +76,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 ...data,
                 uid: currentUser.uid,
               }));
+            } else {
+              // Default fallback profile while backend persists document
+              const isAdminEmail = currentUser.email?.toLowerCase() === 'alishabatool838@gmail.com';
+              setProfile(prev => prev || ({
+                uid: currentUser.uid,
+                name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+                email: currentUser.email || '',
+                role: isAdminEmail ? 'admin' : 'student',
+                pointsBalance: 0,
+                accountStatus: 'active',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              }));
             }
             setLoading(false);
           },
           (error) => {
             handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
+            setLoading(false);
           }
         );
       } else {
@@ -138,6 +158,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const sendPasswordReset = async (emailToReset: string) => {
+    await sendPasswordResetEmail(auth, emailToReset);
+  };
+
   const role: UserRole | null = profile?.role || null;
   const pointsBalance = profile?.pointsBalance ?? 0;
 
@@ -154,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUpWithEmail,
         signOutUser,
         refreshProfile,
+        sendPasswordReset,
       }}
     >
       {children}
