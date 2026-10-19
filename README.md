@@ -6,7 +6,7 @@
 
 Users can contribute to their communities, submit evidence of completed tasks, earn points after verification, and redeem eligible rewards at participating local shops. Local merchants can manage their businesses and offers, while administrators oversee task verification, merchant approval, and platform activity.
 
-**Developed independently by Alisha Batool.**
+**Developer: Alisha Batool.**
 
 > Project status: In Development
 
