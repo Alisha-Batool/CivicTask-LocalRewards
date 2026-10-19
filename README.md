@@ -187,10 +187,10 @@ Never commit private API credentials, service-account keys, or secret environmen
 
 ## 🖼 Screenshots
 <p align="center">
-  <img src="c1.png" width="48%" alt="CivicTask Landing Page" />\
-  <img src="civic.png" width="48%" alt="CivicTask Admin Dashboard" />\
-  <img src="mer.png" width="48%" alt="CivicTask Merchant Dashboard" />\
-  <img src="stu.png" width="48%" alt="CivicTask Student Dashboard" />\
+  <img src="c1.png" width="48%" alt="CivicTask Landing Page" />
+  <img src="civic.png" width="48%" alt="CivicTask Admin Dashboard" />
+  <img src="mer.png" width="48%" alt="CivicTask Merchant Dashboard" />
+  <img src="stu.png" width="48%" alt="CivicTask Student Dashboard" />
 </p>
 
 ## 🚀 Getting Started
@@ -273,15 +273,6 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 ```
 
-This is an illustrative template, not a verified list of the project's current environment variable names. Use the names expected by the source code and do not add unused variables.
-
-Important:
-
-- Browser-exposed variables such as `VITE_*` are visible to users.
-- Never place service-account private keys or server-only secrets in frontend environment variables.
-- Keep local secret files out of Git.
-- Restrict API keys appropriately and configure Firebase Security Rules.
-
 ## 🧪 Testing
 
 The following scenarios should be tested before a public demonstration:
@@ -295,8 +286,6 @@ The following scenarios should be tested before a public demonstration:
 - Unauthorized access attempts.
 - Mobile responsiveness.
 - Build and runtime errors.
-
-Only report tests as passed after actually running them. Add test results here as implementation and verification progress.
 
 ## 🗺 Future Roadmap
 
@@ -314,7 +303,7 @@ These are potential future improvements, not claims of current functionality.
 
 ## 👩‍💻 Developer
 
-**Alisha Batool — Solo Developer**
+**Alisha Batool (Solo Developer)**
 
 CivicTask & Local Rewards is being developed independently as a civic-tech project exploring how verified community participation can connect students, local businesses, and meaningful rewards.
 
@@ -328,4 +317,4 @@ No license has been specified in this README. Unless a license file is added, ot
 
 ---
 
-**CivicTask & Local Rewards — Small actions. Real impact.**
+**CivicTask & Local Rewards(Small actions. Real impact).**
