@@ -188,6 +188,12 @@ Never commit private API credentials, service-account keys, or secret environmen
 ## 🖼 Screenshots
 
 Screenshots help reviewers understand the application without running it.
+<p align="center">
+  <img src="c1.png" width="48%" alt="CivicTask Landing Page" />
+  <img src="c6.png" width="48%" alt="CivicTask Admin Dashboard" />
+  <img src="mer.png" width="48%" alt="CivicTask Merchant Dashboard" />
+  <img src="stu.png" width="48%" alt="CivicTask Student Dashboard" />
+</p>
 
 Add actual screenshots to a `screenshots/` directory and use the following section to display them. Replace these placeholders after uploading the images.
 
