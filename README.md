@@ -1,6 +1,6 @@
 # CivicTask & Local Rewards 🌱
 
-### Small actions. Real impact.
+### Small actions.Real impact.
 
 **CivicTask & Local Rewards** is a civic-tech platform designed to encourage community service by connecting students and community helpers with meaningful local tasks and rewards from participating businesses.
 
@@ -186,32 +186,12 @@ The intended safeguards include:
 Never commit private API credentials, service-account keys, or secret environment files to the repository. Firebase web configuration values are not equivalent to server-side secrets; database authorization must be enforced separately.
 
 ## 🖼 Screenshots
-
-Screenshots help reviewers understand the application without running it.
 <p align="center">
-  <img src="c1.png" width="48%" alt="CivicTask Landing Page" />
-  <img src="c6.png" width="48%" alt="CivicTask Admin Dashboard" />
-  <img src="mer.png" width="48%" alt="CivicTask Merchant Dashboard" />
-  <img src="stu.png" width="48%" alt="CivicTask Student Dashboard" />
+  <img src="c1.png" width="48%" alt="CivicTask Landing Page" />\
+  <img src="civic.png" width="48%" alt="CivicTask Admin Dashboard" />\
+  <img src="mer.png" width="48%" alt="CivicTask Merchant Dashboard" />\
+  <img src="stu.png" width="48%" alt="CivicTask Student Dashboard" />\
 </p>
-
-Add actual screenshots to a `screenshots/` directory and use the following section to display them. Replace these placeholders after uploading the images.
-
-| Screenshot | What it demonstrates |
-|---|---|
-| `screenshots/landing-page.png` | Public landing page and navigation |
-| `screenshots/student-dashboard.png` | Community participation and points |
-| `screenshots/task-submission.png` | Task completion and evidence submission |
-| `screenshots/merchant-dashboard.png` | Business management and offers |
-| `screenshots/admin-dashboard.png` | Administrative moderation |
-
-Once the images exist, embed them using Markdown, for example:
-
-```markdown
-![CivicTask Admin Dashboard](screenshots/admin-dashboard.png)
-```
-
-Only include screenshots of features that actually exist in the application. Do not include real users' private information, access tokens, or credentials.
 
 ## 🚀 Getting Started
 
