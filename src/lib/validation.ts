@@ -119,15 +119,31 @@ export const AiTaskMatchResponseSchema = z.object({
   summary: z.string().max(1000).optional().default(''),
 });
 
-export const ChatMessageSchema = z.object({
-  role: z.enum(['user', 'assistant', 'system']),
+export const ChatMessageObjectSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system']).default('user'),
   content: z.string().min(1, 'Message content cannot be empty').max(3000, 'Message is too long (max 3000 characters)'),
   timestamp: z.string().optional(),
 });
 
+export const ChatMessageSchema = z.union([
+  ChatMessageObjectSchema,
+  z.string().min(1, 'Message content cannot be empty').max(3000, 'Message is too long (max 3000 characters)').transform((content) => ({
+    role: 'user' as const,
+    content: content.trim(),
+  })),
+]);
+
 export const ChatRequestSchema = z.object({
-  messages: z.array(ChatMessageSchema).min(1, 'At least one message is required').max(30, 'Conversation history exceeds 30 messages limit'),
-});
+  messages: z.array(ChatMessageSchema).max(30, 'Conversation history exceeds 30 messages limit').optional(),
+  message: z.string().min(1, 'Message content cannot be empty').max(3000, 'Message is too long (max 3000 characters)').optional(),
+  prompt: z.string().min(1, 'Prompt cannot be empty').max(3000, 'Prompt is too long (max 3000 characters)').optional(),
+}).refine(
+  (data) => (data.messages && data.messages.length > 0) || (data.message && data.message.trim().length > 0) || (data.prompt && data.prompt.trim().length > 0),
+  {
+    message: 'Either a "messages" array or a "message"/"prompt" string is required',
+    path: ['messages'],
+  }
+);
 
 export const ChatResponseSchema = z.object({
   reply: z.string().min(1),

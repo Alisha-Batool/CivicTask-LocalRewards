@@ -27,9 +27,25 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
   }
 
   if (!res.ok) {
-    const errorMsg = data && typeof data === 'object' && data.error 
-      ? data.error 
-      : `Request failed with status ${res.status}`;
+    let errorMsg = `Request failed with status ${res.status}`;
+    if (data && typeof data === 'object') {
+      if (data.details) {
+        if (Array.isArray(data.details)) {
+          const detailStrings = data.details.map((d: any) => {
+            if (typeof d === 'string') return d;
+            if (d && d.message) return d.path && d.path.length ? `[${d.path.join('.')}] ${d.message}` : d.message;
+            return JSON.stringify(d);
+          });
+          errorMsg = `${data.error || 'Validation error'}: ${detailStrings.join('; ')}`;
+        } else if (typeof data.details === 'string') {
+          errorMsg = `${data.error || 'Error'}: ${data.details}`;
+        } else {
+          errorMsg = data.error || errorMsg;
+        }
+      } else if (data.error) {
+        errorMsg = data.error;
+      }
+    }
     throw new Error(errorMsg);
   }
 

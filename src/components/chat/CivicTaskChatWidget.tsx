@@ -119,6 +119,7 @@ export function CivicTaskChatWidget() {
       const response = await apiFetch<ChatApiResponse>('/api/ai/chat', {
         method: 'POST',
         body: JSON.stringify({
+          message: text,
           messages: messagesForApi,
         }),
       });

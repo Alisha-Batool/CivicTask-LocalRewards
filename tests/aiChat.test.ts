@@ -111,11 +111,17 @@ async function runAiChatTests() {
     // -------------------------------------------------------------------------
     console.log('Test 3: Request payload validation (Zod schema)...');
 
-    // Empty messages array
+    // Empty messages array without message property
     const emptyMessagesRes = await apiCall('/api/ai/chat', `test-student-${studentUid}`, {
       messages: [],
     });
     assert(emptyMessagesRes.status === 400, `Expected 400 for empty messages array, got ${emptyMessagesRes.status}`);
+
+    // Empty message string
+    const emptyMsgStrRes = await apiCall('/api/ai/chat', `test-student-${studentUid}`, {
+      message: '',
+    });
+    assert(emptyMsgStrRes.status === 400, `Expected 400 for empty message string, got ${emptyMsgStrRes.status}`);
 
     // Missing content in message
     const missingContentRes = await apiCall('/api/ai/chat', `test-student-${studentUid}`, {
@@ -131,29 +137,80 @@ async function runAiChatTests() {
     console.log('  ✓ PASS: Malformed chat payloads rejected with HTTP 400.\n');
 
     // -------------------------------------------------------------------------
-    // TEST 4: Zod Schema unit tests
+    // TEST 4: Zod Schema unit tests for all supported payload formats
     // -------------------------------------------------------------------------
-    console.log('Test 4: Testing ChatRequestSchema and ChatMessageSchema...');
-    const validChatReq = {
+    console.log('Test 4: Testing ChatRequestSchema with multiple payload formats...');
+    
+    // Format A: messages array of objects
+    const formatA = ChatRequestSchema.safeParse({
       messages: [
-        { role: 'user', content: 'How do I redeem points at a local shop?' },
-        { role: 'assistant', content: 'You can generate a 15-minute QR voucher in the student portal!' },
-        { role: 'user', content: 'Thanks! How many points is a coffee voucher?' },
-      ],
-    };
-    const parsedValid = ChatRequestSchema.safeParse(validChatReq);
-    assert(parsedValid.success, 'Valid conversation history must parse cleanly');
-    console.log('  ✓ PASS: Zod schema validates full multi-turn conversation histories.\n');
-
-    // -------------------------------------------------------------------------
-    // TEST 5: Real endpoint dispatch with live student credentials
-    // -------------------------------------------------------------------------
-    console.log('Test 5: Dispatching authentic request to /api/ai/chat...');
-    const chatRes = await apiCall('/api/ai/chat', `test-student-${studentUid}`, {
-      messages: [
-        { role: 'user', content: 'What community volunteering opportunities are available?' },
+        { role: 'user', content: 'Recommend a volunteering task for a student interested in teaching and community service. Explain why.' },
       ],
     });
+    assert(formatA.success, 'Format A (messages array) must be valid');
+
+    // Format B: single message string
+    const formatB = ChatRequestSchema.safeParse({
+      message: 'Recommend a volunteering task for a student interested in teaching and community service. Explain why.',
+    });
+    assert(formatB.success, 'Format B (single message string) must be valid');
+
+    // Format C: prompt string
+    const formatC = ChatRequestSchema.safeParse({
+      prompt: 'Recommend a volunteering task for a student interested in teaching and community service. Explain why.',
+    });
+    assert(formatC.success, 'Format C (prompt string) must be valid');
+
+    // Format D: combined message and messages history
+    const formatD = ChatRequestSchema.safeParse({
+      message: 'Recommend a volunteering task for a student interested in teaching and community service. Explain why.',
+      messages: [
+        { role: 'user', content: 'Hello' },
+        { role: 'assistant', content: 'Hi there!' },
+      ],
+    });
+    assert(formatD.success, 'Format D (combined message + history) must be valid');
+
+    // Format E: messages array of strings
+    const formatE = ChatRequestSchema.safeParse({
+      messages: ['How can I earn points?', 'Where do I find tasks?'],
+    });
+    assert(formatE.success, 'Format E (array of strings) must be valid');
+
+    console.log('  ✓ PASS: Zod schema validates all standard chat payload structures.\n');
+
+    // -------------------------------------------------------------------------
+    // TEST 5: Real endpoint dispatch with live student credentials & exact user message
+    // -------------------------------------------------------------------------
+    console.log('Test 5: Dispatching exact user query to /api/ai/chat...');
+    const userQuery = 'Recommend a volunteering task for a student interested in teaching and community service. Explain why.';
+    
+    // Test with combined payload as sent by frontend
+    const chatRes = await apiCall('/api/ai/chat', `test-student-${studentUid}`, {
+      message: userQuery,
+      messages: [{ role: 'user', content: userQuery }],
+    });
+
+    // Test with single message payload
+    const singleMsgRes = await apiCall('/api/ai/chat', `test-student-${studentUid}`, {
+      message: userQuery,
+    });
+
+    assert(
+      chatRes.status === 200 || chatRes.status === 503,
+      `Expected 200 (live inference) or 503 (offline daemon), got ${chatRes.status}`
+    );
+    assert(
+      singleMsgRes.status === 200 || singleMsgRes.status === 503,
+      `Expected 200 or 503 for single message payload, got ${singleMsgRes.status}`
+    );
+
+    // Verify model target is strictly qwen2.5:3b-instruct
+    const targetModel = chatRes.data.model;
+    assert(
+      targetModel === 'qwen2.5:3b-instruct',
+      `Expected backend to use model 'qwen2.5:3b-instruct', got '${targetModel}'`
+    );
 
     if (chatRes.status === 200) {
       console.log('  ✓ Live Ollama Qwen2.5-3B-Instruct chat inference SUCCEEDED (HTTP 200)!');
@@ -168,10 +225,8 @@ async function runAiChatTests() {
       console.log(`    Instructions: ${chatRes.data.setupInstructions}`);
       assert(chatRes.data.connected === false, 'connected flag should be false when Ollama is offline');
       assert(!chatRes.data.reply, 'Zero mock reply generated when Ollama is offline');
-    } else {
-      console.log(`  ℹ Response status: ${chatRes.status}`, chatRes.data);
     }
-    console.log('  ✓ PASS: Genuine service handling verified (zero mock fallback, zero proprietary substitution).\n');
+    console.log('  ✓ PASS: Both payload shapes accepted cleanly without 400 validation error.\n');
 
     console.log('🎉 ALL 5 AI CHAT BACKEND INTEGRATION TESTS PASSED SUCCESSFULLY!\n');
   } catch (err) {

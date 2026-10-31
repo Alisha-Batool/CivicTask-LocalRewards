@@ -1228,7 +1228,9 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       });
 
       const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
-      const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5:3b-instruct';
+      const ollamaModel = (process.env.OLLAMA_MODEL && process.env.OLLAMA_MODEL !== 'qwen2.5:3b')
+        ? process.env.OLLAMA_MODEL
+        : 'qwen2.5:3b-instruct';
 
       const systemPrompt = `You are CivicTask AI Match, an intelligent volunteering recommendation engine.
 Your mission is to analyze active civic volunteering opportunities and match them with students based on:
@@ -1301,7 +1303,6 @@ CRITICAL INSTRUCTIONS:
       } catch (fetchErr: any) {
         clearTimeout(timeoutId);
         const isTimeout = fetchErr.name === 'AbortError';
-        console.warn(`[CivicTask AI Match] Ollama connection failure: ${fetchErr.message}`);
         sendJson(res, 503, {
           error: isTimeout
             ? 'Ollama request timed out after 25 seconds. Please ensure the local LLM host has sufficient compute resources.'
@@ -1318,7 +1319,6 @@ CRITICAL INSTRUCTIONS:
 
       if (!ollamaResponse.ok) {
         const errorText = await ollamaResponse.text().catch(() => '');
-        console.warn(`[CivicTask AI Match] Ollama returned HTTP ${ollamaResponse.status}: ${errorText}`);
         sendJson(res, 502, {
           error: `Ollama inference failed with status ${ollamaResponse.status}.`,
           model: ollamaModel,
@@ -1437,7 +1437,9 @@ CRITICAL INSTRUCTIONS:
       }).join('\n');
 
       const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
-      const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5:3b-instruct';
+      const ollamaModel = (process.env.OLLAMA_MODEL && process.env.OLLAMA_MODEL !== 'qwen2.5:3b')
+        ? process.env.OLLAMA_MODEL
+        : 'qwen2.5:3b-instruct';
 
       const systemPrompt = `You are the CivicTask AI Assistant, the intelligent guide for the CivicTask & Local Rewards community volunteering platform.
 
@@ -1472,12 +1474,29 @@ CURRENT USER CONTEXT:
 - Role: ${profile.role}
 - Points Balance: ${profile.pointsBalance} pts`;
 
+      let conversationMessages: { role: 'user' | 'assistant' | 'system'; content: string }[] = [];
+
+      if (parsed.data.messages && parsed.data.messages.length > 0) {
+        conversationMessages = parsed.data.messages.map((m: any) => {
+          if (typeof m === 'string') {
+            return { role: 'user' as const, content: m };
+          }
+          return { role: m.role || ('user' as const), content: m.content };
+        });
+      }
+
+      // If single message or prompt was provided and not already included as the latest message
+      const singleText = (parsed.data.message || parsed.data.prompt || '').trim();
+      if (singleText) {
+        const lastMsg = conversationMessages[conversationMessages.length - 1];
+        if (!lastMsg || lastMsg.content !== singleText) {
+          conversationMessages.push({ role: 'user', content: singleText });
+        }
+      }
+
       const formattedMessages = [
         { role: 'system', content: systemPrompt },
-        ...parsed.data.messages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
+        ...conversationMessages,
       ];
 
       let ollamaResponse: Response;
@@ -1501,7 +1520,6 @@ CURRENT USER CONTEXT:
       } catch (fetchErr: any) {
         clearTimeout(timeoutId);
         const isTimeout = fetchErr.name === 'AbortError';
-        console.warn(`[CivicTask AI Assistant] Ollama connection failure: ${fetchErr.message}`);
         sendJson(res, 503, {
           error: isTimeout
             ? 'Ollama request timed out after 25 seconds. Please ensure the local LLM host has sufficient resources.'
@@ -1518,7 +1536,6 @@ CURRENT USER CONTEXT:
 
       if (!ollamaResponse.ok) {
         const errorText = await ollamaResponse.text().catch(() => '');
-        console.warn(`[CivicTask AI Assistant] Ollama returned HTTP ${ollamaResponse.status}: ${errorText}`);
         sendJson(res, 502, {
           error: `Ollama inference failed with status ${ollamaResponse.status}.`,
           model: ollamaModel,
