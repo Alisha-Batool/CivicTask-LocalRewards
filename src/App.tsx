@@ -14,12 +14,12 @@ import { UnauthorizedPage } from './components/common/UnauthorizedPage.tsx';
 import { AuthModal } from './components/auth/AuthModal.tsx';
 import { DemoGuideModal } from './components/common/DemoGuideModal.tsx';
 import { MerchantApplyModal } from './components/merchant/MerchantApplyModal.tsx';
+import { CivicTaskChatWidget } from './components/chat/CivicTaskChatWidget.tsx';
 import { 
   GraduationCap, 
   Store, 
   ShieldAlert, 
-  ArrowRight,
-  ShieldCheck
+  ShieldCheck 
 } from 'lucide-react';
 
 function AppContent() {
@@ -50,6 +50,13 @@ function AppContent() {
     const sub = after.replace(/^\//, '').split('/')[0];
     return sub || 'dashboard';
   };
+
+  // Redirect legacy /demo routes to /login or landing
+  useEffect(() => {
+    if (path.startsWith('/demo')) {
+      navigate('/login', { replace: true });
+    }
+  }, [path, navigate]);
 
   // Enforce Strict Role-Based Route Protection and URL Access Control
   useEffect(() => {
@@ -248,10 +255,12 @@ function AppContent() {
                 if (tab === 'tasks') {
                   if (role === 'admin') navigate('/admin/tasks');
                   else if (role === 'shopkeeper') navigate('/merchant/offers');
+                  else if (user) navigate('/student/discover');
                   else navigate('/student/discover');
                 } else if (tab === 'rewards') {
                   if (role === 'admin') navigate('/admin/businesses');
                   else if (role === 'shopkeeper') navigate('/merchant/offers');
+                  else if (user) navigate('/student/offers');
                   else navigate('/student/offers');
                 }
               }}
@@ -338,6 +347,9 @@ function AppContent() {
         }} 
       />
       <MerchantApplyModal isOpen={isMerchantApplyOpen} onClose={() => setIsMerchantApplyOpen(false)} />
+
+      {/* Floating CivicTask AI Assistant Chat */}
+      <CivicTaskChatWidget />
 
     </div>
   );

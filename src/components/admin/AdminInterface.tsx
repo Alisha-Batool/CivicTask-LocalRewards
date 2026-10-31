@@ -57,7 +57,7 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
   const { success, error } = useToast();
   const { path, navigate } = useRouter();
 
-  // Primary Collections
+  // Primary Collections from Cloud Firestore
   const [submissions, setSubmissions] = useState<TaskSubmission[]>([]);
   const [tasks, setTasks] = useState<CivicTask[]>([]);
   const [shops, setShops] = useState<PartnerShop[]>([]);
@@ -226,7 +226,7 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
     return () => unsubscribe();
   }, []);
 
-  // 7. Students (Users with role student)
+  // 7. Students listener
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'users'));
@@ -367,7 +367,6 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
     .reduce((acc, curr) => acc + (curr.amount || 0), 0);
   const successfulRedemptionsCount = transactions.length;
 
-  // Navigation Items
   const adminNavItems = [
     { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, href: '/admin/dashboard' },
     { id: 'tasks', label: 'Task Management', icon: FileCheck2, href: '/admin/tasks' },

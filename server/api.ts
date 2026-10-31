@@ -24,7 +24,10 @@ import {
   ConfirmRedemptionSchema,
   ShopkeeperApplicationSchema,
   ReviewApplicationSchema,
-  UpdateShopSchema
+  UpdateShopSchema,
+  AiTaskMatchRequestSchema,
+  AiTaskMatchResponseSchema,
+  ChatRequestSchema
 } from '../src/lib/validation.ts';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -1149,6 +1152,399 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         message: 'Successfully seeded 5 civic tasks and 4 neighborhood partner shops.',
         tasksCount: sampleTasks.length,
         shopsCount: sampleShops.length,
+      });
+      return true;
+    }
+
+    // 10. CivicTask AI Match: Real open-weight LLM inference via Ollama (Qwen2.5-3B-Instruct)
+    if (endpoint === '/api/ai/match-tasks' && req.method === 'POST') {
+      const profile = await getAuthoritativeUser();
+      if (!profile) {
+        sendJson(res, 403, { error: 'Forbidden: User profile not found.' });
+        return true;
+      }
+
+      // Enforce student role
+      if (profile.role !== 'student') {
+        sendJson(res, 403, { 
+          error: 'Forbidden: CivicTask AI Match is exclusively accessible to student volunteers.',
+          currentRole: profile.role 
+        });
+        return true;
+      }
+
+      if (profile.accountStatus === 'suspended') {
+        sendJson(res, 403, { error: 'Forbidden: Account is suspended.' });
+        return true;
+      }
+
+      const body = await parseBody(req);
+      const parsed = AiTaskMatchRequestSchema.safeParse(body);
+      if (!parsed.success) {
+        sendJson(res, 400, {
+          error: 'Invalid AI Match request parameters',
+          details: parsed.error.issues,
+        });
+        return true;
+      }
+
+      // Fetch authoritative active tasks from Firestore
+      const tasksQuery = query(collection(db, 'tasks'), where('status', '==', 'active'));
+      const tasksSnapshot = await getDocs(tasksQuery);
+
+      if (tasksSnapshot.empty) {
+        sendJson(res, 200, {
+          success: true,
+          model: process.env.OLLAMA_MODEL || 'qwen2.5:3b-instruct',
+          student: {
+            name: profile.name,
+            interests: parsed.data.interests,
+            skills: parsed.data.skills,
+            availableHoursPerWeek: parsed.data.availableHoursPerWeek,
+          },
+          totalCandidatesEvaluated: 0,
+          matches: [],
+          summary: 'There are currently no active civic opportunities in your area to evaluate.',
+        });
+        return true;
+      }
+
+      // Map active tasks to authoritative lookup
+      const taskMap = new Map<string, any>();
+      const candidateTasks = tasksSnapshot.docs.map((docSnap) => {
+        const d = docSnap.data();
+        const taskObj = {
+          id: docSnap.id,
+          title: d.title || 'Untitled Opportunity',
+          category: d.category || 'General',
+          description: d.description || '',
+          rewardPoints: Number(d.rewardPoints) || 0,
+          estimatedHours: Number(d.estimatedHours) || 1,
+          location: d.location || 'Local Community',
+          submissionGuidelines: d.submissionGuidelines || '',
+        };
+        taskMap.set(docSnap.id, taskObj);
+        return taskObj;
+      });
+
+      const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
+      const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5:3b-instruct';
+
+      const systemPrompt = `You are CivicTask AI Match, an intelligent volunteering recommendation engine.
+Your mission is to analyze active civic volunteering opportunities and match them with students based on:
+1. Alignment between the student's personal interests and the task category/mission.
+2. Direct overlap between the student's declared skills and the requirements of the task.
+3. Realistic feasibility considering the student's available hours per week.
+
+CRITICAL INSTRUCTIONS:
+- You must ONLY select and recommend tasks from the provided Candidate Tasks list.
+- Every match MUST use the exact "id" from the Candidate Tasks list as "taskId".
+- Never invent, hallucinate, or extrapolate task IDs, titles, or properties.
+- Return up to 5 recommendations ranked from highest match quality to lowest.
+- "matchScore" MUST be an integer between 1 and 100 reflecting genuine relevance.
+- "matchReason" must clearly explain why this task fits the student's specific skills and weekly availability (1-2 sentences).
+- "keySkillOverlap" must list specific matching skills from the student's profile.
+- Return ONLY valid JSON adhering strictly to this schema:
+{
+  "matches": [
+    {
+      "taskId": "exact_task_id_from_candidate_list",
+      "matchScore": 85,
+      "matchReason": "Explanation of alignment with skills and availability.",
+      "keySkillOverlap": ["skill1", "skill2"]
+    }
+  ],
+  "summary": "1-2 sentence overall coaching summary for the student."
+}`;
+
+      const userPrompt = JSON.stringify({
+        studentProfile: {
+          name: profile.name,
+          interests: parsed.data.interests,
+          skills: parsed.data.skills,
+          availableHoursPerWeek: parsed.data.availableHoursPerWeek,
+          additionalNotes: parsed.data.additionalNotes || 'None',
+        },
+        candidateTasks: candidateTasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          category: t.category,
+          description: t.description,
+          estimatedHours: t.estimatedHours,
+          rewardPoints: t.rewardPoints,
+          location: t.location,
+        })),
+      });
+
+      let ollamaResponse: Response;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout for local LLM inference
+
+      try {
+        ollamaResponse = await fetch(`${ollamaHost}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: ollamaModel,
+            stream: false,
+            format: 'json',
+            options: {
+              temperature: 0.2,
+            },
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+          }),
+        });
+      } catch (fetchErr: any) {
+        clearTimeout(timeoutId);
+        const isTimeout = fetchErr.name === 'AbortError';
+        console.warn(`[CivicTask AI Match] Ollama connection failure: ${fetchErr.message}`);
+        sendJson(res, 503, {
+          error: isTimeout
+            ? 'Ollama request timed out after 25 seconds. Please ensure the local LLM host has sufficient compute resources.'
+            : 'Ollama AI service is currently unreachable. Please ensure the Ollama daemon is running locally or at OLLAMA_HOST.',
+          model: ollamaModel,
+          host: ollamaHost,
+          setupInstructions: `Start Ollama service and execute: ollama run ${ollamaModel}`,
+          connected: false,
+        });
+        return true;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      if (!ollamaResponse.ok) {
+        const errorText = await ollamaResponse.text().catch(() => '');
+        console.warn(`[CivicTask AI Match] Ollama returned HTTP ${ollamaResponse.status}: ${errorText}`);
+        sendJson(res, 502, {
+          error: `Ollama inference failed with status ${ollamaResponse.status}.`,
+          model: ollamaModel,
+          host: ollamaHost,
+          details: errorText,
+          setupInstructions: `Verify the model is installed with: ollama pull ${ollamaModel}`,
+        });
+        return true;
+      }
+
+      const ollamaData = await ollamaResponse.json().catch(() => null);
+      const rawContent = ollamaData?.message?.content;
+
+      if (!rawContent || typeof rawContent !== 'string') {
+        sendJson(res, 502, {
+          error: 'Ollama returned an empty or malformed chat response.',
+          model: ollamaModel,
+        });
+        return true;
+      }
+
+      let parsedAiJson: any;
+      try {
+        parsedAiJson = JSON.parse(rawContent);
+      } catch (jsonErr) {
+        console.warn('[CivicTask AI Match] Failed to parse JSON from Ollama output:', rawContent);
+        sendJson(res, 502, {
+          error: 'Ollama output was not valid JSON.',
+          rawOutput: rawContent,
+        });
+        return true;
+      }
+
+      const validatedAi = AiTaskMatchResponseSchema.safeParse(parsedAiJson);
+      if (!validatedAi.success) {
+        console.warn('[CivicTask AI Match] Ollama JSON failed schema validation:', validatedAi.error.issues);
+        sendJson(res, 502, {
+          error: 'AI output did not conform to the expected match schema.',
+          details: validatedAi.error.issues,
+        });
+        return true;
+      }
+
+      // Authoritative task validation: verify every recommended taskId actually exists in Firestore
+      const verifiedMatches = validatedAi.data.matches
+        .filter((match) => taskMap.has(match.taskId))
+        .map((match) => {
+          const taskDetails = taskMap.get(match.taskId);
+          return {
+            taskId: match.taskId,
+            taskTitle: taskDetails.title,
+            category: taskDetails.category,
+            rewardPoints: taskDetails.rewardPoints,
+            estimatedHours: taskDetails.estimatedHours,
+            location: taskDetails.location,
+            matchScore: Math.min(100, Math.max(1, Math.round(match.matchScore))),
+            matchReason: match.matchReason,
+            keySkillOverlap: match.keySkillOverlap || [],
+          };
+        })
+        .sort((a, b) => b.matchScore - a.matchScore);
+
+      sendJson(res, 200, {
+        success: true,
+        model: ollamaModel,
+        student: {
+          name: profile.name,
+          interests: parsed.data.interests,
+          skills: parsed.data.skills,
+          availableHoursPerWeek: parsed.data.availableHoursPerWeek,
+        },
+        totalCandidatesEvaluated: candidateTasks.length,
+        matches: verifiedMatches,
+        summary: validatedAi.data.summary || `Found ${verifiedMatches.length} volunteering opportunities matching your profile.`,
+      });
+      return true;
+    }
+
+    // 11. CivicTask AI Assistant Chat (Authenticated Users)
+    if (endpoint === '/api/ai/chat' && req.method === 'POST') {
+      const profile = await getAuthoritativeUser();
+      if (!profile) {
+        sendJson(res, 403, { error: 'Forbidden: User profile not found.' });
+        return true;
+      }
+
+      if (profile.accountStatus === 'suspended') {
+        sendJson(res, 403, { error: 'Forbidden: Account is suspended.' });
+        return true;
+      }
+
+      const body = await parseBody(req);
+      const parsed = ChatRequestSchema.safeParse(body);
+      if (!parsed.success) {
+        sendJson(res, 400, {
+          error: 'Invalid chat request parameters',
+          details: parsed.error.issues,
+        });
+        return true;
+      }
+
+      // Retrieve real active tasks from Firestore to ground recommendations
+      const tasksQuery = query(collection(db, 'tasks'), where('status', '==', 'active'));
+      const tasksSnapshot = await getDocs(tasksQuery);
+      const activeTasksSummary = tasksSnapshot.docs.map((docSnap) => {
+        const d = docSnap.data();
+        return `- Task ID: "${docSnap.id}" | Title: "${d.title || 'Untitled'}" | Category: ${d.category} | Reward: +${d.rewardPoints} pts | Est. Hours: ~${d.estimatedHours || 1} hrs | Location: ${d.location || 'Local community'}`;
+      }).join('\n');
+
+      // Retrieve real active partner shops from Firestore
+      const shopsQuery = query(collection(db, 'partnerShops'), where('status', '==', 'active'));
+      const shopsSnapshot = await getDocs(shopsQuery);
+      const activeShopsSummary = shopsSnapshot.docs.map((docSnap) => {
+        const d = docSnap.data();
+        return `- Shop: "${d.shopName}" | Offer: "${d.discountOffer}" | Cost: ${d.pointsCost} pts | Category: ${d.category} | Address: ${d.address}`;
+      }).join('\n');
+
+      const ollamaHost = process.env.OLLAMA_HOST || 'http://localhost:11434';
+      const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5:3b-instruct';
+
+      const systemPrompt = `You are the CivicTask AI Assistant, the intelligent guide for the CivicTask & Local Rewards community volunteering platform.
+
+PLATFORM ROLES & RULES:
+1. Students / Volunteers:
+   - Browse verified community tasks created by administrators.
+   - Volunteer and submit verification proof (photos or secure HTTPS links).
+   - Earn reward points when human administrators review and approve their proof.
+   - Redeem accumulated points at local neighborhood partner shops for discounts and vouchers via single-use QR codes.
+2. Local Merchants / Shopkeepers:
+   - Onboard storefronts to offer student discounts (e.g. $5 off bakery orders, free bike tune-ups).
+   - Scan or enter redemption codes to apply student discounts in real time.
+3. Administrators:
+   - Review and audit proof submissions (approving or rejecting with feedback).
+   - Manage civic opportunities and partner businesses.
+
+CRITICAL INVARIANTS:
+- You are strictly an informational assistant. You CANNOT approve volunteer submissions, credit points, or alter user balances. If asked, politely inform the user that only human administrators can audit proof and award points.
+- When recommending opportunities, ONLY recommend real active tasks from the list below. NEVER invent, hallucinate, or fabricate task IDs, point values, or partner offers.
+- Ground all task references in the real active tasks provided below.
+- Keep answers concise, helpful, friendly, and community-minded.
+
+CURRENT REAL ACTIVE CIVIC TASKS:
+${activeTasksSummary || 'No active tasks found in the database.'}
+
+CURRENT REAL LOCAL PARTNER SHOPS & OFFERS:
+${activeShopsSummary || 'No active partner shops found in the database.'}
+
+CURRENT USER CONTEXT:
+- Name: ${profile.name || authUser.name || 'Community Member'}
+- Email: ${authUser.email}
+- Role: ${profile.role}
+- Points Balance: ${profile.pointsBalance} pts`;
+
+      const formattedMessages = [
+        { role: 'system', content: systemPrompt },
+        ...parsed.data.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      ];
+
+      let ollamaResponse: Response;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+      try {
+        ollamaResponse = await fetch(`${ollamaHost}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: ollamaModel,
+            stream: false,
+            options: {
+              temperature: 0.3,
+            },
+            messages: formattedMessages,
+          }),
+        });
+      } catch (fetchErr: any) {
+        clearTimeout(timeoutId);
+        const isTimeout = fetchErr.name === 'AbortError';
+        console.warn(`[CivicTask AI Assistant] Ollama connection failure: ${fetchErr.message}`);
+        sendJson(res, 503, {
+          error: isTimeout
+            ? 'Ollama request timed out after 25 seconds. Please ensure the local LLM host has sufficient resources.'
+            : 'Ollama AI service is currently unreachable. Please ensure the Ollama daemon is running locally or at OLLAMA_HOST.',
+          model: ollamaModel,
+          host: ollamaHost,
+          setupInstructions: `Start Ollama service and execute: ollama run ${ollamaModel}`,
+          connected: false,
+        });
+        return true;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      if (!ollamaResponse.ok) {
+        const errorText = await ollamaResponse.text().catch(() => '');
+        console.warn(`[CivicTask AI Assistant] Ollama returned HTTP ${ollamaResponse.status}: ${errorText}`);
+        sendJson(res, 502, {
+          error: `Ollama inference failed with status ${ollamaResponse.status}.`,
+          model: ollamaModel,
+          host: ollamaHost,
+          details: errorText,
+          setupInstructions: `Verify the model is installed with: ollama pull ${ollamaModel}`,
+        });
+        return true;
+      }
+
+      const ollamaData = await ollamaResponse.json().catch(() => null);
+      const rawContent = ollamaData?.message?.content;
+
+      if (!rawContent || typeof rawContent !== 'string') {
+        sendJson(res, 502, {
+          error: 'Ollama returned an empty chat response.',
+          model: ollamaModel,
+        });
+        return true;
+      }
+
+      sendJson(res, 200, {
+        success: true,
+        reply: rawContent.trim(),
+        model: ollamaModel,
+        timestamp: new Date().toISOString(),
       });
       return true;
     }

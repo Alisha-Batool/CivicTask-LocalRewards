@@ -10,12 +10,11 @@ import {
   GraduationCap, 
   Menu, 
   X, 
-  ChevronRight,
-  QrCode,
-  FileCheck2,
-  ScrollText,
-  Building2,
-  Tag
+  ChevronRight, 
+  QrCode, 
+  FileCheck2, 
+  ScrollText, 
+  Building2 
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -38,6 +37,13 @@ export function Navbar({ onOpenAuth, onOpenGuide }: NavbarProps) {
     return path.startsWith(route);
   };
 
+  const getLogoDestination = () => {
+    if (user) {
+      return role === 'admin' ? '/admin/dashboard' : role === 'shopkeeper' ? '/merchant/dashboard' : '/student/dashboard';
+    }
+    return '/';
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -46,9 +52,7 @@ export function Navbar({ onOpenAuth, onOpenGuide }: NavbarProps) {
           {/* Zone 1: Wordmark */}
           <div className="flex items-center gap-3 shrink-0">
             <button 
-              onClick={() => handleNavigate(
-                !user ? '/' : role === 'admin' ? '/admin/dashboard' : role === 'shopkeeper' ? '/merchant/dashboard' : '/student/dashboard'
-              )}
+              onClick={() => handleNavigate(getLogoDestination())}
               className="flex items-center gap-2.5 text-left focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 rounded-lg outline-none"
               aria-label="CivicTask Home"
             >
@@ -65,7 +69,7 @@ export function Navbar({ onOpenAuth, onOpenGuide }: NavbarProps) {
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600" aria-label="Main Navigation">
             
             {/* Student Navigation (or unauthenticated visitor) */}
-            {(!user || role === 'student') && (
+            {(!role || role === 'student') && (
               <>
                 <button
                   onClick={() => handleNavigate('/student/discover')}
@@ -97,7 +101,7 @@ export function Navbar({ onOpenAuth, onOpenGuide }: NavbarProps) {
             )}
 
             {/* Merchant Navigation */}
-            {user && role === 'shopkeeper' && (
+            {role === 'shopkeeper' && (
               <>
                 <button
                   onClick={() => handleNavigate('/merchant/dashboard')}
@@ -136,7 +140,7 @@ export function Navbar({ onOpenAuth, onOpenGuide }: NavbarProps) {
             )}
 
             {/* Admin Navigation */}
-            {user && role === 'admin' && (
+            {role === 'admin' && (
               <>
                 <button
                   onClick={() => handleNavigate('/admin/dashboard')}

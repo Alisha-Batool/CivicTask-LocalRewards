@@ -99,3 +99,40 @@ export const UpdateShopSchema = z.object({
   pointsCost: z.number().int().positive(),
   status: z.enum(['active', 'inactive']),
 });
+
+export const AiTaskMatchRequestSchema = z.object({
+  interests: z.array(z.string().min(1).max(60)).min(1, 'Please select or provide at least one interest').max(10),
+  skills: z.array(z.string().min(1).max(60)).min(1, 'Please select or provide at least one skill').max(10),
+  availableHoursPerWeek: z.number().positive('Hours per week must be greater than 0').max(40, 'Hours per week cannot exceed 40'),
+  additionalNotes: z.string().max(500).optional(),
+});
+
+export const AiTaskMatchItemSchema = z.object({
+  taskId: z.string().min(1, 'Task ID is required'),
+  matchScore: z.number().min(0).max(100),
+  matchReason: z.string().min(5, 'Match reason must be at least 5 characters').max(1000),
+  keySkillOverlap: z.array(z.string().max(60)).optional().default([]),
+});
+
+export const AiTaskMatchResponseSchema = z.object({
+  matches: z.array(AiTaskMatchItemSchema).max(10),
+  summary: z.string().max(1000).optional().default(''),
+});
+
+export const ChatMessageSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system']),
+  content: z.string().min(1, 'Message content cannot be empty').max(3000, 'Message is too long (max 3000 characters)'),
+  timestamp: z.string().optional(),
+});
+
+export const ChatRequestSchema = z.object({
+  messages: z.array(ChatMessageSchema).min(1, 'At least one message is required').max(30, 'Conversation history exceeds 30 messages limit'),
+});
+
+export const ChatResponseSchema = z.object({
+  reply: z.string().min(1),
+  model: z.string(),
+  timestamp: z.string(),
+});
+
+

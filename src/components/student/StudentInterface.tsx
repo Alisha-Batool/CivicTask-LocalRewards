@@ -37,8 +37,10 @@ import {
   ExternalLink,
   XCircle,
   TrendingUp,
-  Tag
+  Tag,
+  BrainCircuit
 } from 'lucide-react';
+import { CivicTaskAiMatchModal } from './CivicTaskAiMatchModal.tsx';
 
 interface StudentInterfaceProps {
   subRoute?: string;
@@ -50,7 +52,7 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
   const { success, error } = useToast();
   const { path, navigate } = useRouter();
 
-  // Real-time collections
+  // Real-time collections from Cloud Firestore
   const [tasks, setTasks] = useState<CivicTask[]>([]);
   const [submissions, setSubmissions] = useState<TaskSubmission[]>([]);
   const [shops, setShops] = useState<PartnerShop[]>([]);
@@ -89,6 +91,7 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileName, setProfileName] = useState(profile?.name || '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isAiMatchOpen, setIsAiMatchOpen] = useState(false);
 
   // Derive active view from subRoute or path
   const activeNav = subRoute || (
@@ -112,19 +115,21 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
       }
       if (activeRedemption) setActiveRedemption(null);
       if (isEditingProfile) setIsEditingProfile(false);
+      if (isAiMatchOpen) setIsAiMatchOpen(false);
     }
-  }, [confirmingShop, selectedTask, activeRedemption, isEditingProfile]);
+  }, [confirmingShop, selectedTask, activeRedemption, isEditingProfile, isAiMatchOpen]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Tasks listener
+  // Real-time Firestore sync
   useEffect(() => {
-    const q = collection(db, 'tasks');
-    const unsubscribe = onSnapshot(
-      q,
+    // Tasks listener (Live Mode)
+    const qTasks = collection(db, 'tasks');
+    const unsubscribeTasks = onSnapshot(
+      qTasks,
       (snapshot) => {
         const list: CivicTask[] = [];
         snapshot.forEach((doc) => {
@@ -138,35 +143,11 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
         setLoadingTasks(false);
       }
     );
-    return () => unsubscribe();
-  }, []);
 
-  // Submissions listener
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'submissions'), where('userId', '==', user.uid));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const list: TaskSubmission[] = [];
-        snapshot.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() } as TaskSubmission);
-        });
-        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setSubmissions(list);
-      },
-      (err) => {
-        handleFirestoreError(err, OperationType.LIST, 'submissions');
-      }
-    );
-    return () => unsubscribe();
-  }, [user]);
-
-  // Partner Shops listener
-  useEffect(() => {
-    const q = collection(db, 'partnerShops');
-    const unsubscribe = onSnapshot(
-      q,
+    // Partner Shops listener (Live Mode)
+    const qShops = collection(db, 'partnerShops');
+    const unsubscribeShops = onSnapshot(
+      qShops,
       (snapshot) => {
         const list: PartnerShop[] = [];
         snapshot.forEach((doc) => {
@@ -178,28 +159,46 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
         handleFirestoreError(err, OperationType.LIST, 'partnerShops');
       }
     );
-    return () => unsubscribe();
-  }, []);
 
-  // Points Ledger listener
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, 'pointsLedger'), where('userId', '==', user.uid));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const list: PointsLedgerEntry[] = [];
-        snapshot.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() } as PointsLedgerEntry);
-        });
-        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setLedgerEntries(list);
-      },
-      (err) => {
-        handleFirestoreError(err, OperationType.LIST, 'pointsLedger');
-      }
-    );
-    return () => unsubscribe();
+    let unsubscribeSubs: (() => void) | null = null;
+    let unsubscribeLedger: (() => void) | null = null;
+
+    if (user) {
+      const qSubs = query(collection(db, 'submissions'), where('userId', '==', user.uid));
+      unsubscribeSubs = onSnapshot(
+        qSubs,
+        (snapshot) => {
+          const list: TaskSubmission[] = [];
+          snapshot.forEach((doc) => {
+            list.push({ id: doc.id, ...doc.data() } as TaskSubmission);
+          });
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setSubmissions(list);
+        },
+        (err) => handleFirestoreError(err, OperationType.LIST, 'submissions')
+      );
+
+      const qLedger = query(collection(db, 'pointsLedger'), where('userId', '==', user.uid));
+      unsubscribeLedger = onSnapshot(
+        qLedger,
+        (snapshot) => {
+          const list: PointsLedgerEntry[] = [];
+          snapshot.forEach((doc) => {
+            list.push({ id: doc.id, ...doc.data() } as PointsLedgerEntry);
+          });
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setLedgerEntries(list);
+        },
+        (err) => handleFirestoreError(err, OperationType.LIST, 'pointsLedger')
+      );
+    }
+
+    return () => {
+      unsubscribeTasks();
+      unsubscribeShops();
+      if (unsubscribeSubs) unsubscribeSubs();
+      if (unsubscribeLedger) unsubscribeLedger();
+    };
   }, [user]);
 
   // Active redemption countdown
@@ -395,7 +394,7 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
 
   return (
     <div className="space-y-6">
-      
+
       {/* Student Hub Secondary Navigation Bar */}
       <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs">
         <nav className="flex items-center gap-1 overflow-x-auto" aria-label="Student portal navigation">
@@ -564,12 +563,21 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
                   <h3 className="text-base font-bold text-slate-900">Featured Volunteer Tasks</h3>
                   <p className="text-xs text-slate-600">Immediate community service needs</p>
                 </div>
-                <button
-                  onClick={() => navigate('/student/discover')}
-                  className="text-xs font-semibold text-emerald-800 hover:text-emerald-900"
-                >
-                  View All &rarr;
-                </button>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={() => setIsAiMatchOpen(true)}
+                    className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>AI Match</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/student/discover')}
+                    className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+                  >
+                    View All &rarr;
+                  </button>
+                </div>
               </div>
 
               {tasks.filter(t => t.status === 'active').slice(0, 3).map(task => (
@@ -648,11 +656,48 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
       {/* VIEW 2: DISCOVER TASKS */}
       {activeNav === 'discover' && (
         <div className="space-y-6">
-          <div className="border-b border-slate-200 pb-4">
-            <h2 className="text-2xl font-bold text-slate-900">Discover Community Service Opportunities</h2>
-            <p className="text-xs text-slate-600 mt-1">
-              Select verified high-need civic tasks, review instructions, and earn rewards upon approval
-            </p>
+          <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Discover Community Service Opportunities</h2>
+              <p className="text-xs text-slate-600 mt-1">
+                Select verified high-need civic tasks, review instructions, and earn rewards upon approval
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsAiMatchOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-900 hover:to-teal-950 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow-md transition-all shrink-0 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-300" />
+              <span>CivicTask AI Match</span>
+            </button>
+          </div>
+
+          {/* AI Match Callout Banner */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 rounded-2xl p-5 text-white shadow-xs border border-emerald-900/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-xl">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold uppercase">
+                  Qwen2.5-3B-Instruct
+                </span>
+                <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                  <BrainCircuit className="w-3.5 h-3.5" />
+                  Intelligent Task Matching
+                </span>
+              </div>
+              <h3 className="text-base font-bold">Unsure where to begin? Match with Open-Weight AI</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Provide your skills, causes you care about, and available hours per week. CivicTask AI Match will evaluate active opportunities and suggest the best fits.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsAiMatchOpen(true)}
+              className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Find My Matches</span>
+            </button>
           </div>
 
           {/* Search & Category Filter */}
@@ -1526,6 +1571,17 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
           </div>
         </div>
       )}
+
+      {/* CivicTask AI Match Modal */}
+      <CivicTaskAiMatchModal
+        isOpen={isAiMatchOpen}
+        onClose={() => setIsAiMatchOpen(false)}
+        tasks={tasks.filter(t => t.status === 'active')}
+        onSelectTask={(task) => {
+          setSelectedTask(task);
+        }}
+        studentName={profile?.name}
+      />
 
     </div>
   );

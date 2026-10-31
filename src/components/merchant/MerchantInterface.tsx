@@ -47,7 +47,7 @@ export function MerchantInterface({ subRoute = 'dashboard' }: MerchantInterfaceP
   const { success, error } = useToast();
   const { path, navigate } = useRouter();
 
-  // Primary state
+  // Primary state from Firestore
   const [shops, setShops] = useState<PartnerShop[]>([]);
   const [selectedShop, setSelectedShop] = useState<PartnerShop | null>(null);
   const [transactions, setTransactions] = useState<CivicTransaction[]>([]);

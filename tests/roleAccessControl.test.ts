@@ -328,7 +328,11 @@ async function runRoleAccessControlTests() {
   }
 }
 
-runRoleAccessControlTests().catch(err => {
-  console.error('Test Suite Failed:', err);
-  process.exit(1);
-});
+runRoleAccessControlTests()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch(err => {
+    console.error('Test Suite Failed:', err);
+    process.exit(1);
+  });
