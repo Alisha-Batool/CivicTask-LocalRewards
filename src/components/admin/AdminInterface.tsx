@@ -54,7 +54,7 @@ interface AdminInterfaceProps {
 }
 
 export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) {
-  const { user, profile, signOutUser } = useAuth();
+  const { user, profile, signOutUser, isDemoMode } = useAuth();
   const { success, error } = useToast();
   const { path, navigate } = useRouter();
 
@@ -241,7 +241,10 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
 
   // 7. Students listener
   useEffect(() => {
-    if (!user) return;
+    if (!isDemoMode) {
+      setStudents([]);
+      return;
+    }
     const q = query(collection(db, 'users'));
     const unsubscribe = subscribeCollection(
       'users',
@@ -260,7 +263,7 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
       (err) => console.warn('Users listener:', err)
     );
     return () => unsubscribe();
-  }, [user]);
+  }, [isDemoMode]);
 
   // Handlers
   const handleCreateTask = async (e: React.FormEvent) => {
