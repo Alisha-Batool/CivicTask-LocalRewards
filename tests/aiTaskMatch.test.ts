@@ -114,16 +114,12 @@ async function runAiTaskMatchTests() {
     console.log('  ✓ Test user profiles created successfully in Firestore.\n');
 
     // -------------------------------------------------------------------------
-    // TEST 1: Unauthenticated request must return HTTP 401
+    // TEST 1: Guest requests reach validation without requiring authentication
     // -------------------------------------------------------------------------
-    console.log('Test 1: Unauthenticated requests are rejected...');
-    const unauthRes = await apiCall('/api/ai/match-tasks', undefined, {
-      interests: ['Environment'],
-      skills: ['Gardening'],
-      availableHoursPerWeek: 4,
-    });
-    assert(unauthRes.status === 401, `Expected 401 for unauthenticated request, got ${unauthRes.status}`);
-    console.log('  ✓ PASS: Unauthenticated request rejected with HTTP 401.\n');
+    console.log('Test 1: Guest requests reach AI task-match validation...');
+    const guestRes = await apiCall('/api/ai/match-tasks', undefined, {});
+    assert(guestRes.status === 400, `Expected 400 for invalid guest request, got ${guestRes.status}`);
+    console.log('  ✓ PASS: Guest request reached payload validation without requiring authentication.\n');
 
     // -------------------------------------------------------------------------
     // TEST 2: Role gate: Non-students (Shopkeeper & Admin) are rejected (HTTP 403)

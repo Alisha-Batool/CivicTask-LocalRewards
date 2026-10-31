@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import confetti from 'canvas-confetti';
 import { db } from '../../lib/firebase.ts';
+import { subscribeCollection } from '../../lib/data-subscription.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
 import { apiFetch } from '../../lib/api-client.ts';
@@ -81,8 +82,10 @@ export function AdminDashboard() {
   // 1. Submissions listener
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'submissions',
       collection(db, 'submissions'),
+      {},
       (snapshot) => {
         const list: TaskSubmission[] = [];
         snapshot.forEach((doc) => {
@@ -100,8 +103,10 @@ export function AdminDashboard() {
 
   // 2. Tasks listener
   useEffect(() => {
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'tasks',
       collection(db, 'tasks'),
+      {},
       (snapshot) => {
         const list: CivicTask[] = [];
         snapshot.forEach((doc) => {
@@ -119,8 +124,10 @@ export function AdminDashboard() {
 
   // 3. Partner shops listener
   useEffect(() => {
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'partnerShops',
       collection(db, 'partnerShops'),
+      {},
       (snapshot) => {
         const list: PartnerShop[] = [];
         snapshot.forEach((doc) => {
@@ -138,8 +145,10 @@ export function AdminDashboard() {
   // 4. Shopkeeper applications listener
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'shopkeeperApplications',
       collection(db, 'shopkeeperApplications'),
+      {},
       (snapshot) => {
         const list: ShopkeeperApplication[] = [];
         snapshot.forEach((doc) => {
@@ -158,8 +167,10 @@ export function AdminDashboard() {
   // 5. Points ledger listener
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'pointsLedger',
       collection(db, 'pointsLedger'),
+      {},
       (snapshot) => {
         const list: PointsLedgerEntry[] = [];
         snapshot.forEach((doc) => {
@@ -178,8 +189,10 @@ export function AdminDashboard() {
   // 6. Transactions listener
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'transactions',
       collection(db, 'transactions'),
+      {},
       (snapshot) => {
         const list: CivicTransaction[] = [];
         snapshot.forEach((doc) => {

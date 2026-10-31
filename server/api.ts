@@ -90,6 +90,10 @@ async function verifyAuthToken(req: IncomingMessage): Promise<VerifiedUser | nul
 
   // Development/Test token simulation (e.g., in automated integration tests)
   if (token.startsWith('test-')) {
+    if (process.env.NODE_ENV === 'production' || process.env.VITE_DEMO_MODE === 'true') {
+      return null;
+    }
+
     const parts = token.split('-'); // e.g. test-admin-uid or test-student-uid
     const role = parts[1] || 'student';
     const uid = parts.slice(2).join('-') || `test_${role}_uid`;
@@ -160,6 +164,7 @@ function parseBody(req: IncomingMessage): Promise<any> {
       try {
         resolve(body ? JSON.parse(body) : {});
       } catch (err) {
+        console.error('[CivicTask API] parseBody failed. Raw body received:', JSON.stringify(body));
         reject(new Error('Invalid JSON payload'));
       }
     });
@@ -211,8 +216,17 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     return true;
   }
 
-  // Verify authentication for all /api endpoints except /api/health
-  const authUser = await verifyAuthToken(req);
+  // AI endpoints accept guest requests because they are non-mutating and independently rate-limited.
+  const isGuestAiRequest =
+    (endpoint === '/api/ai/match-tasks' || endpoint === '/api/ai/chat') &&
+    req.method === 'POST';
+  const verifiedAuthUser = await verifyAuthToken(req);
+  const authUser = verifiedAuthUser ?? (isGuestAiRequest ? {
+    uid: `guest_ai_${hashString(clientIp).slice(0, 20)}`,
+    email: '',
+    emailVerified: false,
+    name: 'Guest',
+  } : null);
   if (!authUser) {
     sendJson(res, 401, { error: 'Unauthorized. Valid Firebase authentication token required.' });
     return true;
@@ -279,6 +293,15 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     // Helper to fetch authoritative profile
     async function getAuthoritativeUser() {
+      if (isGuestAiRequest && !verifiedAuthUser) {
+        return {
+          role: 'student',
+          pointsBalance: 0,
+          name: 'Guest',
+          email: '',
+          accountStatus: 'active',
+        };
+      }
       const userSnap = await getDoc(doc(db, 'users', authUser!.uid));
       if (!userSnap.exists()) return null;
       return userSnap.data() as { role: string; pointsBalance: number; name: string; email: string; accountStatus?: string };
@@ -1499,9 +1522,17 @@ CURRENT USER CONTEXT:
         ...conversationMessages,
       ];
 
+      console.log(`[CivicTask AI Chat] Incoming chat request received. User: ${authUser.uid}, Role: ${profile.role}`);
+      console.log(
+        `[CivicTask AI Chat] Ollama request -> POST ${ollamaHost}/api/chat | model: ${ollamaModel} | stream: false`,
+      );
+      console.log(
+        `[CivicTask AI Chat] Conversation forwarded to Ollama: ${JSON.stringify(formattedMessages.map((m) => ({ role: m.role, content: m.content })))}`,
+      );
+
       let ollamaResponse: Response;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout for local LLM inference
 
       try {
         ollamaResponse = await fetch(`${ollamaHost}/api/chat`, {
@@ -1519,10 +1550,11 @@ CURRENT USER CONTEXT:
         });
       } catch (fetchErr: any) {
         clearTimeout(timeoutId);
+        console.error('[CivicTask AI Chat] Ollama request failed:', fetchErr);
         const isTimeout = fetchErr.name === 'AbortError';
         sendJson(res, 503, {
           error: isTimeout
-            ? 'Ollama request timed out after 25 seconds. Please ensure the local LLM host has sufficient resources.'
+            ? 'Ollama request timed out after 120 seconds. Please ensure the local LLM host has sufficient resources.'
             : 'Ollama AI service is currently unreachable. Please ensure the Ollama daemon is running locally or at OLLAMA_HOST.',
           model: ollamaModel,
           host: ollamaHost,
@@ -1534,8 +1566,11 @@ CURRENT USER CONTEXT:
         clearTimeout(timeoutId);
       }
 
+      console.log(`[CivicTask AI Chat] Ollama response status: ${ollamaResponse.status}`);
+
       if (!ollamaResponse.ok) {
         const errorText = await ollamaResponse.text().catch(() => '');
+        console.error(`[CivicTask AI Chat] Ollama inference failed with status ${ollamaResponse.status}:`, errorText);
         sendJson(res, 502, {
           error: `Ollama inference failed with status ${ollamaResponse.status}.`,
           model: ollamaModel,
@@ -1550,6 +1585,7 @@ CURRENT USER CONTEXT:
       const rawContent = ollamaData?.message?.content;
 
       if (!rawContent || typeof rawContent !== 'string') {
+        console.error('[CivicTask AI Chat] Ollama returned an empty or malformed chat response.', ollamaData);
         sendJson(res, 502, {
           error: 'Ollama returned an empty chat response.',
           model: ollamaModel,
@@ -1557,9 +1593,12 @@ CURRENT USER CONTEXT:
         return true;
       }
 
+      const generatedReply = rawContent.trim();
+      console.log(`[CivicTask AI Chat] Generated response received from Qwen2.5 (${ollamaModel}):`, generatedReply);
+
       sendJson(res, 200, {
         success: true,
-        reply: rawContent.trim(),
+        reply: generatedReply,
         model: ollamaModel,
         timestamp: new Date().toISOString(),
       });
@@ -1569,7 +1608,7 @@ CURRENT USER CONTEXT:
     sendJson(res, 404, { error: `Endpoint ${endpoint} not found.` });
     return true;
   } catch (error: any) {
-    console.error('API Error:', error);
+    console.error(`API Error on ${endpoint}:`, error);
     sendJson(res, 500, { error: error.message || 'Internal server error' });
     return true;
   }

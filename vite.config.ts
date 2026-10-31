@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig, Plugin } from 'vite';
+import { defineConfig, loadEnv, Plugin } from 'vite';
 
 function civicTaskApiPlugin(): Plugin {
   return {
@@ -29,7 +29,12 @@ function civicTaskApiPlugin(): Plugin {
   };
 }
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  if (process.env.VITE_DEMO_MODE === undefined && env.VITE_DEMO_MODE !== undefined) {
+    process.env.VITE_DEMO_MODE = env.VITE_DEMO_MODE;
+  }
+
   return {
     plugins: [react(), tailwindcss(), civicTaskApiPlugin()],
     resolve: {

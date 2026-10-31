@@ -18,11 +18,10 @@ import {
 } from 'lucide-react';
 
 interface NavbarProps {
-  onOpenAuth: () => void;
   onOpenGuide: () => void;
 }
 
-export function Navbar({ onOpenAuth, onOpenGuide }: NavbarProps) {
+export function Navbar({ onOpenGuide }: NavbarProps) {
   const { user, profile, role, pointsBalance, signOutUser } = useAuth();
   const { path, navigate } = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -187,7 +186,7 @@ export function Navbar({ onOpenAuth, onOpenGuide }: NavbarProps) {
             </button>
           </nav>
 
-          {/* Zone 3: User Lockup or Sign In */}
+          {/* Zone 3: Guest Profile */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {user ? (
               <div className="flex items-center gap-2 sm:gap-3">
@@ -225,29 +224,22 @@ export function Navbar({ onOpenAuth, onOpenGuide }: NavbarProps) {
                   )}
                 </span>
 
-                {/* User Name & Sign Out */}
+                {/* Guest Profile & Reset */}
                 <div className="flex items-center gap-1.5">
                   <span className="hidden lg:inline text-xs font-medium text-slate-700 max-w-[120px] truncate">
-                    {profile?.name || user.email?.split('@')[0]}
+                    {profile.name}
                   </span>
                   <button
                     onClick={signOutUser}
                     className="min-h-[36px] min-w-[36px] p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-rose-500 outline-none flex items-center justify-center"
-                    title="Sign Out"
-                    aria-label="Sign Out"
+                    title="Reset guest profile"
+                    aria-label="Reset guest profile"
                   >
                     <LogOut className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-            ) : (
-              <button
-                onClick={onOpenAuth}
-                className="min-h-[40px] px-4 py-2 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition-colors whitespace-nowrap shrink-0 shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-600 outline-none"
-              >
-                Sign In
-              </button>
-            )}
+            ) : null}
 
             {/* Mobile Hamburger Button */}
             <button

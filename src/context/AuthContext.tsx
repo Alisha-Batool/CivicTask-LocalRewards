@@ -1,27 +1,27 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { 
-  User, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut,
-  updateProfile,
-  onAuthStateChanged,
-  sendPasswordResetEmail
-} from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase.ts';
-import { UserProfile, UserRole } from '../lib/types.ts';
-import { handleFirestoreError, OperationType } from '../lib/error-handler.ts';
-import { apiFetch } from '../lib/api-client.ts';
+import React, { createContext, useContext, useMemo, useState } from 'react';
+import { DEMO_ROLE_STORAGE_KEY, demoProfile, updateDemoProfile } from '../lib/demo-data.ts';
+import { isDemoMode } from '../lib/demo-mode.ts';
+import type { UserProfile, UserRole } from '../lib/types.ts';
+
+const GUEST_ID_STORAGE_KEY = 'civictask-guest-id';
+const GUEST_NAME_STORAGE_KEY = 'civictask-guest-name';
+
+interface ApplicationUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+}
 
 interface AuthContextType {
-  user: User | null;
-  profile: UserProfile | null;
-  role: UserRole | null;
+  user: ApplicationUser;
+  profile: UserProfile;
+  role: UserRole;
   pointsBalance: number;
   loading: boolean;
+  isDemoMode: boolean;
+  isGuestMode: boolean;
+  switchDemoRole: (role: UserRole) => void;
+  updateGuestName: (name: string) => void;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (e: string, p: string) => Promise<void>;
   signUpWithEmail: (e: string, p: string, n: string) => Promise<void>;
@@ -32,138 +32,78 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function storedRole(): UserRole {
+  if (typeof window === 'undefined') return 'student';
+  const role = window.localStorage.getItem(DEMO_ROLE_STORAGE_KEY);
+  return role === 'student' || role === 'shopkeeper' || role === 'admin' ? role : 'student';
+}
+
+function createGuestId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? `guest_${crypto.randomUUID()}`
+    : `guest_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
+function guestId(): string {
+  if (typeof window === 'undefined') return 'guest_server';
+  const savedId = window.localStorage.getItem(GUEST_ID_STORAGE_KEY);
+  if (savedId) return savedId;
+  const id = createGuestId();
+  window.localStorage.setItem(GUEST_ID_STORAGE_KEY, id);
+  return id;
+}
+
+function unavailableAuthentication(): Promise<void> {
+  return Promise.reject(new Error('Authentication is disabled. Continue using the guest prototype.'));
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [role, setRole] = useState<UserRole>(storedRole);
+  const [uid, setUid] = useState<string>(guestId);
+  const [name, setName] = useState<string>(() =>
+    typeof window === 'undefined' ? 'Guest' : window.localStorage.getItem(GUEST_NAME_STORAGE_KEY) || 'Guest',
+  );
 
-  // Sync profile with authoritative server
-  const syncProfile = useCallback(async (firebaseUser: User) => {
-    try {
-      const res = await apiFetch<{ profile: UserProfile }>('/api/auth/profile', {
-        method: 'POST',
-      });
-      if (res?.profile) {
-        setProfile(res.profile);
-      }
-    } catch (err) {
-      console.warn('Profile sync note:', err);
-    }
-  }, []);
+  const profile = useMemo<UserProfile>(() => ({
+    ...(isDemoMode ? demoProfile(role) : {
+      uid,
+      name,
+      email: '',
+      role,
+      pointsBalance: 0,
+      accountStatus: 'active' as const,
+      createdAt: new Date(0).toISOString(),
+      updatedAt: new Date(0).toISOString(),
+    }),
+  }), [uid, name, role]);
 
-  useEffect(() => {
-    let unsubscribeSnapshot: (() => void) | null = null;
+  const user = useMemo<ApplicationUser>(() => ({
+    uid: profile.uid,
+    email: profile.email || null,
+    displayName: profile.name,
+  }), [profile]);
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        // Sync profile with authoritative backend server
-        try {
-          await syncProfile(currentUser);
-        } catch (err) {
-          console.warn('Initial sync warning:', err);
-        }
-
-        // Attach real-time Firestore listener for live point balance & role updates
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        unsubscribeSnapshot = onSnapshot(
-          userDocRef,
-          (docSnap) => {
-            if (docSnap.exists()) {
-              const data = docSnap.data() as UserProfile;
-              setProfile(prev => ({
-                ...(prev || {}),
-                ...data,
-                uid: currentUser.uid,
-              }));
-            } else {
-              // Default fallback profile while backend persists document
-              const isAdminEmail = currentUser.email?.toLowerCase() === 'alishabatool838@gmail.com';
-              setProfile(prev => prev || ({
-                uid: currentUser.uid,
-                name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-                email: currentUser.email || '',
-                role: isAdminEmail ? 'admin' : 'student',
-                pointsBalance: 0,
-                accountStatus: 'active',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              }));
-            }
-            setLoading(false);
-          },
-          (error) => {
-            handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
-            setLoading(false);
-          }
-        );
-      } else {
-        if (unsubscribeSnapshot) {
-          unsubscribeSnapshot();
-          unsubscribeSnapshot = null;
-        }
-        setProfile(null);
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeSnapshot) unsubscribeSnapshot();
-    };
-  }, [syncProfile]);
-
-  const signInWithGoogle = async () => {
-    setLoading(true);
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    try {
-      const result = await signInWithPopup(auth, provider);
-      await syncProfile(result.user);
-    } finally {
-      setLoading(false);
-    }
+  const switchDemoRole = (nextRole: UserRole) => {
+    window.localStorage.setItem(DEMO_ROLE_STORAGE_KEY, nextRole);
+    setRole(nextRole);
   };
 
-  const signInWithEmail = async (email: string, pass: string) => {
-    setLoading(true);
-    try {
-      const result = await signInWithEmailAndPassword(auth, email, pass);
-      await syncProfile(result.user);
-    } finally {
-      setLoading(false);
+  const updateGuestName = (nextName: string) => {
+    const trimmedName = nextName.trim();
+    if (!trimmedName) return;
+    if (isDemoMode) {
+      updateDemoProfile({ name: trimmedName });
+    } else {
+      window.localStorage.setItem(GUEST_NAME_STORAGE_KEY, trimmedName);
     }
-  };
-
-  const signUpWithEmail = async (email: string, pass: string, displayName: string) => {
-    setLoading(true);
-    try {
-      const result = await createUserWithEmailAndPassword(auth, email, pass);
-      await updateProfile(result.user, { displayName });
-      await syncProfile(result.user);
-    } finally {
-      setLoading(false);
-    }
+    setName(trimmedName);
   };
 
   const signOutUser = async () => {
-    await signOut(auth);
-    setProfile(null);
-    setUser(null);
+    window.localStorage.removeItem(GUEST_ID_STORAGE_KEY);
+    setUid(createGuestId());
+    switchDemoRole('student');
   };
-
-  const refreshProfile = async () => {
-    if (auth.currentUser) {
-      await syncProfile(auth.currentUser);
-    }
-  };
-
-  const sendPasswordReset = async (emailToReset: string) => {
-    await sendPasswordResetEmail(auth, emailToReset);
-  };
-
-  const role: UserRole | null = profile?.role || null;
-  const pointsBalance = profile?.pointsBalance ?? 0;
 
   return (
     <AuthContext.Provider
@@ -171,14 +111,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         profile,
         role,
-        pointsBalance,
-        loading,
-        signInWithGoogle,
-        signInWithEmail,
-        signUpWithEmail,
+        pointsBalance: profile.pointsBalance,
+        loading: false,
+        isDemoMode,
+        isGuestMode: true,
+        switchDemoRole,
+        updateGuestName,
+        signInWithGoogle: unavailableAuthentication,
+        signInWithEmail: unavailableAuthentication,
+        signUpWithEmail: unavailableAuthentication,
         signOutUser,
-        refreshProfile,
-        sendPasswordReset,
+        refreshProfile: async () => undefined,
+        sendPasswordReset: unavailableAuthentication,
       }}
     >
       {children}

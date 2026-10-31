@@ -1,17 +1,13 @@
-import { auth } from './firebase.ts';
+import { isDemoMode } from './demo-mode.ts';
+import { runDemoApi } from './demo-data.ts';
 
-export async function apiFetch<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  if (isDemoMode) {
+    return runDemoApi(endpoint, options) as T;
+  }
+
   const headers = new Headers(options.headers || {});
   headers.set('Content-Type', 'application/json');
-
-  if (auth.currentUser) {
-    try {
-      const token = await auth.currentUser.getIdToken();
-      headers.set('Authorization', `Bearer ${token}`);
-    } catch (err) {
-      console.warn('Failed to get auth ID token:', err);
-    }
-  }
 
   const res = await fetch(endpoint, {
     ...options,
@@ -19,7 +15,7 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
   });
 
   const contentType = res.headers.get('content-type') || '';
-  let data: any = null;
+  let data: unknown = null;
   if (contentType.includes('application/json')) {
     data = await res.json();
   } else {
@@ -28,22 +24,29 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
 
   if (!res.ok) {
     let errorMsg = `Request failed with status ${res.status}`;
+    if (res.status === 401) {
+      errorMsg = 'Guest access is active. This operation requires a trusted server identity; no privileged data was changed.';
+    }
     if (data && typeof data === 'object') {
-      if (data.details) {
-        if (Array.isArray(data.details)) {
-          const detailStrings = data.details.map((d: any) => {
-            if (typeof d === 'string') return d;
-            if (d && d.message) return d.path && d.path.length ? `[${d.path.join('.')}] ${d.message}` : d.message;
-            return JSON.stringify(d);
+      const errorData = data as { details?: unknown; error?: string };
+      if (errorData.details) {
+        if (Array.isArray(errorData.details)) {
+          const detailStrings = errorData.details.map((detail: unknown) => {
+            if (typeof detail === 'string') return detail;
+            if (detail && typeof detail === 'object' && 'message' in detail) {
+              const issue = detail as { message: string; path?: string[] };
+              return issue.path?.length ? `[${issue.path.join('.')}] ${issue.message}` : issue.message;
+            }
+            return JSON.stringify(detail);
           });
-          errorMsg = `${data.error || 'Validation error'}: ${detailStrings.join('; ')}`;
-        } else if (typeof data.details === 'string') {
-          errorMsg = `${data.error || 'Error'}: ${data.details}`;
+          errorMsg = `${errorData.error || 'Validation error'}: ${detailStrings.join('; ')}`;
+        } else if (typeof errorData.details === 'string') {
+          errorMsg = `${errorData.error || 'Error'}: ${errorData.details}`;
         } else {
-          errorMsg = data.error || errorMsg;
+          errorMsg = errorData.error || errorMsg;
         }
-      } else if (data.error) {
-        errorMsg = data.error;
+      } else if (errorData.error && res.status !== 401) {
+        errorMsg = errorData.error;
       }
     }
     throw new Error(errorMsg);

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import confetti from 'canvas-confetti';
 import { db } from '../../lib/firebase.ts';
+import { subscribeCollection } from '../../lib/data-subscription.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
 import { useRouter } from '../../context/RouterContext.tsx';
@@ -129,8 +130,10 @@ export function MerchantInterface({ subRoute = 'dashboard' }: MerchantInterfaceP
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'partnerShops'), where('ownerId', '==', user.uid));
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'partnerShops',
       q,
+      { ownerId: user.uid },
       (snapshot) => {
         const list: PartnerShop[] = [];
         snapshot.forEach((doc) => {
@@ -154,8 +157,10 @@ export function MerchantInterface({ subRoute = 'dashboard' }: MerchantInterfaceP
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'shopkeeperApplications'), where('userId', '==', user.uid));
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'shopkeeperApplications',
       q,
+      { userId: user.uid },
       (snapshot) => {
         const list: ShopkeeperApplication[] = [];
         snapshot.forEach((doc) => {
@@ -174,8 +179,10 @@ export function MerchantInterface({ subRoute = 'dashboard' }: MerchantInterfaceP
   useEffect(() => {
     if (!selectedShop) return;
     const q = query(collection(db, 'transactions'), where('shopId', '==', selectedShop.id));
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'transactions',
       q,
+      { shopId: selectedShop.id },
       (snapshot) => {
         const list: CivicTransaction[] = [];
         snapshot.forEach((doc) => {
@@ -417,11 +424,11 @@ export function MerchantInterface({ subRoute = 'dashboard' }: MerchantInterfaceP
                 {selectedShop?.shopName || 'Merchant Operations Portal'}
               </h2>
               <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                Verified Merchant
+                Guest Preview
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Authorized Storefront · {selectedShop?.address || user?.email}
+              Preview access only · Privileged changes require a trusted server identity
             </p>
           </div>
         </div>

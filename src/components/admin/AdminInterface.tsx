@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import confetti from 'canvas-confetti';
 import { db } from '../../lib/firebase.ts';
+import { subscribeCollection } from '../../lib/data-subscription.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
 import { useRouter } from '../../context/RouterContext.tsx';
@@ -126,8 +127,10 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
   // 1. Submissions listener
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'submissions',
       collection(db, 'submissions'),
+      {},
       (snapshot) => {
         const list: TaskSubmission[] = [];
         snapshot.forEach((doc) => {
@@ -143,8 +146,10 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
 
   // 2. Tasks listener
   useEffect(() => {
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'tasks',
       collection(db, 'tasks'),
+      {},
       (snapshot) => {
         const list: CivicTask[] = [];
         snapshot.forEach((doc) => {
@@ -160,8 +165,10 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
 
   // 3. Partner shops listener
   useEffect(() => {
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'partnerShops',
       collection(db, 'partnerShops'),
+      {},
       (snapshot) => {
         const list: PartnerShop[] = [];
         snapshot.forEach((doc) => {
@@ -177,8 +184,10 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
   // 4. Shopkeeper applications listener
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'shopkeeperApplications',
       collection(db, 'shopkeeperApplications'),
+      {},
       (snapshot) => {
         const list: ShopkeeperApplication[] = [];
         snapshot.forEach((doc) => {
@@ -194,8 +203,10 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
 
   // 5. Points ledger listener
   useEffect(() => {
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'pointsLedger',
       collection(db, 'pointsLedger'),
+      {},
       (snapshot) => {
         const list: PointsLedgerEntry[] = [];
         snapshot.forEach((doc) => {
@@ -211,8 +222,10 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
 
   // 6. Transactions listener
   useEffect(() => {
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'transactions',
       collection(db, 'transactions'),
+      {},
       (snapshot) => {
         const list: CivicTransaction[] = [];
         snapshot.forEach((doc) => {
@@ -230,12 +243,14 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'users'));
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'users',
       q,
+      {},
       (snapshot) => {
         const list: UserProfile[] = [];
         snapshot.forEach((doc) => {
-          const data = doc.data() as UserProfile;
+          const data = doc.data() as unknown as UserProfile;
           if (data.role === 'student' || !data.role) {
             list.push({ ...data, uid: doc.id });
           }
@@ -393,11 +408,11 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold">Civic Administration &amp; Moderation Panel</h2>
               <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                Authoritative Admin
+                Guest Preview
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Signed in: {user?.email} · Immutable ledger enforcement &amp; atomic reward audits
+              Preview access only · Privileged changes require a trusted server identity
             </p>
           </div>
         </div>
@@ -1218,8 +1233,8 @@ export function AdminInterface({ subRoute = 'dashboard' }: AdminInterfaceProps) 
             </div>
 
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-              <span className="font-semibold text-slate-700 block">Authoritative Admin Account</span>
-              <span className="font-mono text-slate-900 font-bold block">{user?.email}</span>
+              <span className="font-semibold text-slate-700 block">Selected Preview Profile</span>
+              <span className="font-mono text-slate-900 font-bold block">{profile.name} · {profile.role}</span>
             </div>
 
             <div className="pt-4 border-t border-slate-100">

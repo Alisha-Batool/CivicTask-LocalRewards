@@ -1,0 +1,379 @@
+{
+  ".claude/settings.json": {
+    "mtime": 1793446541.9677477,
+    "seen": 1793448038.9560628,
+    "ast_hash": "3ac995fbf93552a991ecab9b63f776aa",
+    "semantic_hash": "3ac995fbf93552a991ecab9b63f776aa",
+    "ast_empty": true
+  },
+  "firebase-applet-config.json": {
+    "mtime": 1793439109.4614465,
+    "seen": 1793448038.9560764,
+    "ast_hash": "8ba5289907f5e7b2250479971c608848",
+    "semantic_hash": "8ba5289907f5e7b2250479971c608848",
+    "ast_empty": true
+  },
+  "firebase-blueprint.json": {
+    "mtime": 1793439109.4634469,
+    "seen": 1793448038.9560819,
+    "ast_hash": "be6e1ac95c17078701accdd0cd635f4f",
+    "semantic_hash": "be6e1ac95c17078701accdd0cd635f4f",
+    "ast_empty": true
+  },
+  "firestore.indexes.json": {
+    "mtime": 1793439109.465445,
+    "seen": 1793448038.9560854,
+    "ast_hash": "548d369b19a3aad9388473265938c6ca",
+    "semantic_hash": "548d369b19a3aad9388473265938c6ca",
+    "ast_empty": true
+  },
+  "metadata.json": {
+    "mtime": 1793439109.472451,
+    "seen": 1793448038.9560885,
+    "ast_hash": "edb7ec5192d59559f1a3b3ea264e44d2",
+    "semantic_hash": "edb7ec5192d59559f1a3b3ea264e44d2",
+    "ast_empty": true
+  },
+  "package.json": {
+    "mtime": 1793439799.269838,
+    "seen": 1793448038.956092,
+    "ast_hash": "36fb5f5aff0b07a095841a2e5841b50f",
+    "semantic_hash": "36fb5f5aff0b07a095841a2e5841b50f"
+  },
+  "server/api.ts": {
+    "mtime": 1793450956.3858664,
+    "seen": 1793451570.2124057,
+    "ast_hash": "e4c4f884a53cd609b63721f377fc8c02",
+    "semantic_hash": ""
+  },
+  "src/App.tsx": {
+    "mtime": 1793451082.362758,
+    "seen": 1793451570.2124166,
+    "ast_hash": "819458fe09a884833d50ea4ff803f26e",
+    "semantic_hash": ""
+  },
+  "src/components/admin/AdminDashboard.tsx": {
+    "mtime": 1793440599.2632904,
+    "seen": 1793448038.9571,
+    "ast_hash": "ca57b4d513602d1cc2f921c15042cb46",
+    "semantic_hash": "ca57b4d513602d1cc2f921c15042cb46"
+  },
+  "src/components/admin/AdminInterface.tsx": {
+    "mtime": 1793451384.9658659,
+    "seen": 1793451570.2124355,
+    "ast_hash": "fa678c426d81fee105f933ddea5ab9d7",
+    "semantic_hash": ""
+  },
+  "src/components/auth/AuthModal.tsx": {
+    "mtime": 1793439109.5314448,
+    "seen": 1793448038.9576895,
+    "ast_hash": "d28d1d48bbeee21a8b054f729e05ca9f",
+    "semantic_hash": "d28d1d48bbeee21a8b054f729e05ca9f"
+  },
+  "src/components/auth/LoginPage.tsx": {
+    "mtime": 1793439109.5334435,
+    "seen": 1793448038.9579651,
+    "ast_hash": "a8fe51adc34083a8e7c39ea697345f09",
+    "semantic_hash": "a8fe51adc34083a8e7c39ea697345f09"
+  },
+  "src/components/auth/PasswordResetPage.tsx": {
+    "mtime": 1793439109.5354507,
+    "seen": 1793448038.958233,
+    "ast_hash": "042576251a85f8c8c41bdffccdd6b4d8",
+    "semantic_hash": "042576251a85f8c8c41bdffccdd6b4d8"
+  },
+  "src/components/auth/RegisterPage.tsx": {
+    "mtime": 1793439109.5364487,
+    "seen": 1793448038.9585035,
+    "ast_hash": "5a396730aafebfd765b6b9bad6d2bc4a",
+    "semantic_hash": "5a396730aafebfd765b6b9bad6d2bc4a"
+  },
+  "src/components/auth/UnauthorizedPage.tsx": {
+    "mtime": 1793439109.5384471,
+    "seen": 1793448038.9587862,
+    "ast_hash": "057e5396dfedb792df5d8ca93425690b",
+    "semantic_hash": "057e5396dfedb792df5d8ca93425690b"
+  },
+  "src/components/chat/CivicTaskChatWidget.tsx": {
+    "mtime": 1793450950.3865287,
+    "seen": 1793451570.2124927,
+    "ast_hash": "882ff5257e2d2e2d6b9ae5769070c694",
+    "semantic_hash": ""
+  },
+  "src/components/common/DemoGuideModal.tsx": {
+    "mtime": 1793439109.5434487,
+    "seen": 1793448038.9593248,
+    "ast_hash": "5258a3c8ec1bf4e4961c5297b3b5d976",
+    "semantic_hash": "5258a3c8ec1bf4e4961c5297b3b5d976"
+  },
+  "src/components/common/SeedBanner.tsx": {
+    "mtime": 1793439109.54445,
+    "seen": 1793448038.959615,
+    "ast_hash": "9906fbbd1315f565571ff0e178d61a23",
+    "semantic_hash": "9906fbbd1315f565571ff0e178d61a23"
+  },
+  "src/components/common/UnauthorizedPage.tsx": {
+    "mtime": 1793439109.5464456,
+    "seen": 1793448038.959901,
+    "ast_hash": "2f2534f8db617272f92ddb81e7b1c735",
+    "semantic_hash": "2f2534f8db617272f92ddb81e7b1c735"
+  },
+  "src/components/home/LandingHero.tsx": {
+    "mtime": 1793450661.518272,
+    "seen": 1793451570.2125323,
+    "ast_hash": "eba4e1bb384e613cb3aa39097d62329d",
+    "semantic_hash": ""
+  },
+  "src/components/layout/Navbar.tsx": {
+    "mtime": 1793450656.054272,
+    "seen": 1793451570.212541,
+    "ast_hash": "ba07560f5dc747064aff24d16589f2b0",
+    "semantic_hash": ""
+  },
+  "src/components/merchant/MerchantApplyModal.tsx": {
+    "mtime": 1793439109.5534453,
+    "seen": 1793448038.9607208,
+    "ast_hash": "bb02644972e08ad4b97f2aac894fe910",
+    "semantic_hash": "bb02644972e08ad4b97f2aac894fe910"
+  },
+  "src/components/merchant/MerchantInterface.tsx": {
+    "mtime": 1793451394.0633974,
+    "seen": 1793451570.2125578,
+    "ast_hash": "0cc8ae2be6ce17897ca4c0d8ce619f2c",
+    "semantic_hash": ""
+  },
+  "src/components/shopkeeper/ShopkeeperDashboard.tsx": {
+    "mtime": 1793440598.5392823,
+    "seen": 1793448038.9612606,
+    "ast_hash": "54f6dbb7ebec1c05de277abac5f5c655",
+    "semantic_hash": "54f6dbb7ebec1c05de277abac5f5c655"
+  },
+  "src/components/student/CivicTaskAiMatchModal.tsx": {
+    "mtime": 1793439109.559453,
+    "seen": 1793448038.961815,
+    "ast_hash": "50da60920a1db7576b2f142941500e64",
+    "semantic_hash": "50da60920a1db7576b2f142941500e64"
+  },
+  "src/components/student/StudentDashboard.tsx": {
+    "mtime": 1793440598.1242828,
+    "seen": 1793448038.9621656,
+    "ast_hash": "fca04dde8fe5872556f5ed7ceeb42ae2",
+    "semantic_hash": "fca04dde8fe5872556f5ed7ceeb42ae2"
+  },
+  "src/components/student/StudentInterface.tsx": {
+    "mtime": 1793451074.371837,
+    "seen": 1793451570.2125955,
+    "ast_hash": "e53f911b809ac83d3a6553aed4ed9506",
+    "semantic_hash": ""
+  },
+  "src/context/AuthContext.tsx": {
+    "mtime": 1793451068.35182,
+    "seen": 1793451570.2126138,
+    "ast_hash": "6b0d099592894faa2f11c561e74271ed",
+    "semantic_hash": ""
+  },
+  "src/context/RouterContext.tsx": {
+    "mtime": 1793439109.5664468,
+    "seen": 1793448038.96305,
+    "ast_hash": "b6568b766dd28c1bcda99db1d76733f3",
+    "semantic_hash": "b6568b766dd28c1bcda99db1d76733f3"
+  },
+  "src/context/ToastContext.tsx": {
+    "mtime": 1793439109.568449,
+    "seen": 1793448038.963321,
+    "ast_hash": "d161e5e120203058e3d966f26bbb4940",
+    "semantic_hash": "d161e5e120203058e3d966f26bbb4940"
+  },
+  "src/lib/api-client.ts": {
+    "mtime": 1793450712.1542745,
+    "seen": 1793451570.2126439,
+    "ast_hash": "f95ba6e442fb37d87156c7070ee0d7a0",
+    "semantic_hash": ""
+  },
+  "src/lib/data-subscription.ts": {
+    "mtime": 1793440523.2489865,
+    "seen": 1793448038.9638646,
+    "ast_hash": "5ba4034b20c42774b22f500bb2014805",
+    "semantic_hash": "5ba4034b20c42774b22f500bb2014805"
+  },
+  "src/lib/demo-data.ts": {
+    "mtime": 1793444736.8126287,
+    "seen": 1793448038.964128,
+    "ast_hash": "7315a10ae9100a8915bc494e3ce07c9e",
+    "semantic_hash": "7315a10ae9100a8915bc494e3ce07c9e"
+  },
+  "src/lib/demo-mode.ts": {
+    "mtime": 1793440495.5832975,
+    "seen": 1793448038.9643927,
+    "ast_hash": "1d399ef49ddd10d10d134ddc3ec6f39a",
+    "semantic_hash": "1d399ef49ddd10d10d134ddc3ec6f39a"
+  },
+  "src/lib/error-handler.ts": {
+    "mtime": 1793451062.5698266,
+    "seen": 1793451570.21268,
+    "ast_hash": "7050eedf9e5f935dbe17af65e92dfa50",
+    "semantic_hash": ""
+  },
+  "src/lib/firebase.ts": {
+    "mtime": 1793451058.2838395,
+    "seen": 1793451570.2126896,
+    "ast_hash": "b597350977dc82ca200425ec84a70330",
+    "semantic_hash": ""
+  },
+  "src/lib/types.ts": {
+    "mtime": 1793439109.5764456,
+    "seen": 1793448038.9651845,
+    "ast_hash": "3d060c23e2e8cdc5b2a6c27f9d25d7c5",
+    "semantic_hash": "3d060c23e2e8cdc5b2a6c27f9d25d7c5"
+  },
+  "src/lib/validation.ts": {
+    "mtime": 1793439109.5774455,
+    "seen": 1793448038.9654431,
+    "ast_hash": "4b59d1296cd4491cfa3a7ca55113b1da",
+    "semantic_hash": "4b59d1296cd4491cfa3a7ca55113b1da"
+  },
+  "src/main.tsx": {
+    "mtime": 1793439109.5784452,
+    "seen": 1793448038.9657145,
+    "ast_hash": "1d465b36bc2e10aa2926ddb620829bf5",
+    "semantic_hash": "1d465b36bc2e10aa2926ddb620829bf5"
+  },
+  "tests/aiChat.test.ts": {
+    "mtime": 1793451007.1404386,
+    "seen": 1793451570.2127285,
+    "ast_hash": "1c84b9b9a626eba2e97df7367e37bc77",
+    "semantic_hash": ""
+  },
+  "tests/aiTaskMatch.test.ts": {
+    "mtime": 1793451001.2474358,
+    "seen": 1793451570.2127366,
+    "ast_hash": "ec84add003f3931632347f6aa52b2722",
+    "semantic_hash": ""
+  },
+  "tests/demoBackendAuth.test.ts": {
+    "mtime": 1793440841.2604644,
+    "seen": 1793448038.9664948,
+    "ast_hash": "4ae7463125fae656cc285d39ddb60b28",
+    "semantic_hash": "4ae7463125fae656cc285d39ddb60b28"
+  },
+  "tests/demoMode.test.ts": {
+    "mtime": 1793444743.140926,
+    "seen": 1793448038.966766,
+    "ast_hash": "eba98ad098c9f109b63458cb6e8ca189",
+    "semantic_hash": "eba98ad098c9f109b63458cb6e8ca189"
+  },
+  "tests/liveFirebaseLifecycle.test.ts": {
+    "mtime": 1793439109.5884492,
+    "seen": 1793448038.9670308,
+    "ast_hash": "c5884b2a5ffba244e003fb0a55d44df5",
+    "semantic_hash": "c5884b2a5ffba244e003fb0a55d44df5"
+  },
+  "tests/pointsEngine.test.ts": {
+    "mtime": 1793439109.589445,
+    "seen": 1793448038.967293,
+    "ast_hash": "169788a360eb6458d20e57ef46ee2f57",
+    "semantic_hash": "169788a360eb6458d20e57ef46ee2f57"
+  },
+  "tests/roleAccessControl.test.ts": {
+    "mtime": 1793439109.5914476,
+    "seen": 1793448038.9675534,
+    "ast_hash": "e9eff3b8918d85c4d77242653c932412",
+    "semantic_hash": "e9eff3b8918d85c4d77242653c932412"
+  },
+  "tests/securityAudit.test.ts": {
+    "mtime": 1793439109.5934482,
+    "seen": 1793448038.9678206,
+    "ast_hash": "27a318d1791a874b202b4bc5f86ceb9a",
+    "semantic_hash": "27a318d1791a874b202b4bc5f86ceb9a"
+  },
+  "tsconfig.json": {
+    "mtime": 1793439109.5944467,
+    "seen": 1793448038.9680774,
+    "ast_hash": "6430905126d88ce83976b5c41099dddc",
+    "semantic_hash": "6430905126d88ce83976b5c41099dddc"
+  },
+  "vite.config.ts": {
+    "mtime": 1793440830.237468,
+    "seen": 1793448038.9683337,
+    "ast_hash": "7f62e4370c2b6fd736da92da54bbbd47",
+    "semantic_hash": "7f62e4370c2b6fd736da92da54bbbd47"
+  },
+  ".claude/CLAUDE.md": {
+    "mtime": 1793446541.66275,
+    "seen": 1793448181.3441644,
+    "ast_hash": "9b31786b637be3c13978bec4c2330752",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1793446541.9037585,
+    "seen": 1793448181.3441796,
+    "ast_hash": "67d88e9d0760c3ba54c75dfd9551c1c5",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1793451434.4025853,
+    "seen": 1793451570.212843,
+    "ast_hash": "9a31a17e243e5533326c0b213cad8a94",
+    "semantic_hash": ""
+  },
+  "index.html": {
+    "mtime": 1793439109.4684474,
+    "seen": 1793448181.3442001,
+    "ast_hash": "62d3a30f81c6332215b7e8d80b0e04c2",
+    "semantic_hash": ""
+  },
+  "c1.png": {
+    "mtime": 1793439109.4574473,
+    "seen": 1793448181.3442109,
+    "ast_hash": "7f13a76be4e22f29ed7f14adab441593",
+    "semantic_hash": ""
+  },
+  "civic.png": {
+    "mtime": 1793439109.4594467,
+    "seen": 1793448181.344217,
+    "ast_hash": "528f21f5c9e7498d038628c3b3d09048",
+    "semantic_hash": ""
+  },
+  "mer.png": {
+    "mtime": 1793439109.4714465,
+    "seen": 1793448181.3442235,
+    "ast_hash": "b120b6d846bb06e76061735595519d98",
+    "semantic_hash": ""
+  },
+  "src/assets/images/civic_hero_community_1792220538777.jpg": {
+    "mtime": 1793439109.496449,
+    "seen": 1793448181.3442295,
+    "ast_hash": "80afbd8b67488e25654736bbe0cddf12",
+    "semantic_hash": ""
+  },
+  "src/assets/images/civic_reward_local_bakery_1792220538873.jpg": {
+    "mtime": 1793439109.504446,
+    "seen": 1793448181.3442364,
+    "ast_hash": "0ee920f063ffd9c023657bd27a6295f0",
+    "semantic_hash": ""
+  },
+  "src/assets/images/civic_task_library_reading_1792220540160.jpg": {
+    "mtime": 1793439109.5104465,
+    "seen": 1793448181.3442426,
+    "ast_hash": "b15bd5dbc87ebb328ef695e8160e8398",
+    "semantic_hash": ""
+  },
+  "src/assets/images/civic_task_urban_garden_1792220538376.jpg": {
+    "mtime": 1793439109.5224435,
+    "seen": 1793448181.344249,
+    "ast_hash": "67687778d214223c68534e5af666e21b",
+    "semantic_hash": ""
+  },
+  "stu.png": {
+    "mtime": 1793439109.5814438,
+    "seen": 1793448181.3442554,
+    "ast_hash": "6b9652be990c9b3925d26838317c2da3",
+    "semantic_hash": ""
+  },
+  "package-lock.json": {
+    "mtime": 1793439827.9169185,
+    "seen": 1793448181.3442621,
+    "ast_hash": "c4962639ed7f30089a297beeff501c65",
+    "semantic_hash": ""
+  }
+}

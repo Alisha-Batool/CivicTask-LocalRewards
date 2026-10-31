@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import { db } from '../../lib/firebase.ts';
+import { subscribeCollection } from '../../lib/data-subscription.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
 import { apiFetch } from '../../lib/api-client.ts';
@@ -91,8 +92,10 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
   // Real-time listener for tasks
   useEffect(() => {
     const q = collection(db, 'tasks');
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'tasks',
       q,
+      {},
       (snapshot) => {
         const list: CivicTask[] = [];
         snapshot.forEach((doc) => {
@@ -113,8 +116,10 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'submissions'), where('userId', '==', user.uid));
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'submissions',
       q,
+      { userId: user.uid },
       (snapshot) => {
         const list: TaskSubmission[] = [];
         snapshot.forEach((doc) => {
@@ -133,8 +138,10 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
   // Real-time listener for partner shops
   useEffect(() => {
     const q = collection(db, 'partnerShops');
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'partnerShops',
       q,
+      {},
       (snapshot) => {
         const list: PartnerShop[] = [];
         snapshot.forEach((doc) => {
@@ -153,8 +160,10 @@ export function StudentDashboard({ onOpenMerchantApply }: StudentDashboardProps)
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'pointsLedger'), where('userId', '==', user.uid));
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'pointsLedger',
       q,
+      { userId: user.uid },
       (snapshot) => {
         const list: PointsLedgerEntry[] = [];
         snapshot.forEach((doc) => {

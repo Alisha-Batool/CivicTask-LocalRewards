@@ -46,6 +46,51 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function isValidGuestSubmission() {
+      let taskPath = /databases/$(database)/documents/tasks/$(incoming().taskId);
+      return request.auth == null &&
+        incoming().keys().hasAll([
+          'userId', 'studentName', 'studentEmail', 'taskId', 'taskTitle',
+          'rewardPoints', 'proofType', 'proofUrl', 'description', 'status',
+          'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'userId', 'studentName', 'studentEmail', 'taskId', 'taskTitle',
+          'rewardPoints', 'proofType', 'proofUrl', 'description', 'status',
+          'createdAt', 'updatedAt'
+        ]) &&
+        incoming().userId is string &&
+        incoming().userId.matches('^guest_[A-Za-z0-9_-]{1,100}$') &&
+        incoming().studentName is string &&
+        incoming().studentName.size() > 0 &&
+        incoming().studentName.size() <= 100 &&
+        incoming().studentEmail == '' &&
+        incoming().taskId is string &&
+        incoming().taskId.size() <= 128 &&
+        incoming().taskTitle is string &&
+        incoming().taskTitle.size() <= 120 &&
+        incoming().rewardPoints is int &&
+        incoming().proofType in ['image', 'link'] &&
+        incoming().proofUrl is string &&
+        incoming().proofUrl.size() <= 850000 &&
+        ((incoming().proofType == 'link' && incoming().proofUrl.matches('^https://.*$')) ||
+         (incoming().proofType == 'image' &&
+          (incoming().proofUrl.matches('^https://.*$') ||
+           incoming().proofUrl.matches('^data:image/(jpeg|png|webp);base64,.*$')))) &&
+        incoming().description is string &&
+        incoming().description.size() >= 10 &&
+        incoming().description.size() <= 2000 &&
+        incoming().status == 'pending' &&
+        incoming().createdAt is string &&
+        incoming().createdAt.size() <= 40 &&
+        incoming().updatedAt is string &&
+        incoming().updatedAt.size() <= 40 &&
+        exists(taskPath) &&
+        get(taskPath).data.status == 'active' &&
+        incoming().taskTitle == get(taskPath).data.title &&
+        incoming().rewardPoints == get(taskPath).data.rewardPoints;
+    }
+
     // USERS COLLECTION
     match /users/{userId} {
       // Allow read so authoritative server verification and client profile sync succeed without permission errors
@@ -96,8 +141,8 @@ service cloud.firestore {
     match /submissions/{submissionId} {
       allow read: if true;
       
-      // Student creates pending submission
-      allow create: if isTestAuthorized() || (
+      // Guests may submit only validated pending proof; review/approval remains privileged.
+      allow create: if isTestAuthorized() || isValidGuestSubmission() || (
         isSignedIn() &&
         incoming().userId == request.auth.uid &&
         incoming().status == 'pending' &&

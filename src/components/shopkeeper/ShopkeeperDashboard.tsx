@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import confetti from 'canvas-confetti';
 import { db } from '../../lib/firebase.ts';
+import { subscribeCollection } from '../../lib/data-subscription.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
 import { apiFetch } from '../../lib/api-client.ts';
@@ -76,8 +77,10 @@ export function ShopkeeperDashboard() {
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, 'partnerShops'), where('ownerId', '==', user.uid));
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'partnerShops',
       q,
+      { ownerId: user.uid },
       (snapshot) => {
         const list: PartnerShop[] = [];
         snapshot.forEach((doc) => {
@@ -101,8 +104,10 @@ export function ShopkeeperDashboard() {
   useEffect(() => {
     if (!selectedShop) return;
     const q = query(collection(db, 'transactions'), where('shopId', '==', selectedShop.id));
-    const unsubscribe = onSnapshot(
+    const unsubscribe = subscribeCollection(
+      'transactions',
       q,
+      { shopId: selectedShop.id },
       (snapshot) => {
         const list: CivicTransaction[] = [];
         snapshot.forEach((doc) => {

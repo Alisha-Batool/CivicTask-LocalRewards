@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, query, where, doc, updateDoc } from 'firebase/firestore';
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import { db } from '../../lib/firebase.ts';
+import { subscribeCollection } from '../../lib/data-subscription.ts';
+import { isDemoMode } from '../../lib/demo-mode.ts';
+import { updateDemoProfile } from '../../lib/demo-data.ts';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
 import { useRouter, Link } from '../../context/RouterContext.tsx';
@@ -48,7 +51,7 @@ interface StudentInterfaceProps {
 }
 
 export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }: StudentInterfaceProps) {
-  const { user, profile, pointsBalance, signOutUser, refreshProfile } = useAuth();
+  const { user, profile, pointsBalance, signOutUser, refreshProfile, isGuestMode, updateGuestName } = useAuth();
   const { success, error } = useToast();
   const { path, navigate } = useRouter();
 
@@ -128,8 +131,10 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
   useEffect(() => {
     // Tasks listener (Live Mode)
     const qTasks = collection(db, 'tasks');
-    const unsubscribeTasks = onSnapshot(
+    const unsubscribeTasks = subscribeCollection(
+      'tasks',
       qTasks,
+      {},
       (snapshot) => {
         const list: CivicTask[] = [];
         snapshot.forEach((doc) => {
@@ -146,8 +151,10 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
 
     // Partner Shops listener (Live Mode)
     const qShops = collection(db, 'partnerShops');
-    const unsubscribeShops = onSnapshot(
+    const unsubscribeShops = subscribeCollection(
+      'partnerShops',
       qShops,
+      {},
       (snapshot) => {
         const list: PartnerShop[] = [];
         snapshot.forEach((doc) => {
@@ -165,8 +172,10 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
 
     if (user) {
       const qSubs = query(collection(db, 'submissions'), where('userId', '==', user.uid));
-      unsubscribeSubs = onSnapshot(
+      unsubscribeSubs = subscribeCollection(
+        'submissions',
         qSubs,
+        { userId: user.uid },
         (snapshot) => {
           const list: TaskSubmission[] = [];
           snapshot.forEach((doc) => {
@@ -179,8 +188,10 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
       );
 
       const qLedger = query(collection(db, 'pointsLedger'), where('userId', '==', user.uid));
-      unsubscribeLedger = onSnapshot(
+      unsubscribeLedger = subscribeCollection(
+        'pointsLedger',
         qLedger,
+        { userId: user.uid },
         (snapshot) => {
           const list: PointsLedgerEntry[] = [];
           snapshot.forEach((doc) => {
@@ -257,17 +268,49 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
       return;
     }
 
+    if (proofType === 'link') {
+      try {
+        if (new URL(proofUrl).protocol !== 'https:') throw new Error('HTTPS required');
+      } catch {
+        error('Please provide a valid HTTPS proof link.');
+        return;
+      }
+    }
+
+    if (isGuestMode && !isDemoMode && proofUrl.startsWith('data:image/') && proofUrl.length > 850000) {
+      error('Guest proof images must be under 850 KB to fit the shared Firestore submission limit.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      await apiFetch('/api/submissions/create', {
-        method: 'POST',
-        body: JSON.stringify({
+      if (isGuestMode && !isDemoMode) {
+        const now = new Date().toISOString();
+        await addDoc(collection(db, 'submissions'), {
+          userId: user.uid,
+          studentName: profile.name,
+          studentEmail: '',
           taskId: selectedTask.id,
+          taskTitle: selectedTask.title,
+          rewardPoints: selectedTask.rewardPoints,
           proofType,
           proofUrl,
           description: submissionDescription,
-        }),
-      });
+          status: 'pending',
+          createdAt: now,
+          updatedAt: now,
+        });
+      } else {
+        await apiFetch('/api/submissions/create', {
+          method: 'POST',
+          body: JSON.stringify({
+            taskId: selectedTask.id,
+            proofType,
+            proofUrl,
+            description: submissionDescription,
+          }),
+        });
+      }
 
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
       success('Proof submitted! Community administrators will review your evidence.');
@@ -337,11 +380,17 @@ export function StudentInterface({ subRoute = 'dashboard', onOpenMerchantApply }
 
     try {
       setIsSavingProfile(true);
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        name: profileName.trim(),
-        updatedAt: new Date().toISOString(),
-      });
+      if (isDemoMode) {
+        updateDemoProfile({ name: profileName.trim() });
+      } else if (isGuestMode) {
+        updateGuestName(profileName.trim());
+      } else {
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, {
+          name: profileName.trim(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
       await refreshProfile();
       success('Profile display name updated!');
       setIsEditingProfile(false);

@@ -12,11 +12,9 @@ import {
   Minimize2, 
   Maximize2,
   ChevronDown,
-  LogIn,
   CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.tsx';
-import { useRouter } from '../../context/RouterContext.tsx';
 import { apiFetch } from '../../lib/api-client.ts';
 
 export interface ChatMessage {
@@ -42,7 +40,6 @@ const SUGGESTED_QUESTIONS = [
 
 export function CivicTaskChatWidget() {
   const { user, profile } = useAuth();
-  const { navigate } = useRouter();
 
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -81,11 +78,6 @@ export function CivicTaskChatWidget() {
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
     if (!text || isLoading) return;
-
-    if (!user) {
-      setErrorMessage('Please sign in to chat with the CivicTask AI Assistant.');
-      return;
-    }
 
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMessage: ChatMessage = {
@@ -353,47 +345,32 @@ export function CivicTaskChatWidget() {
                 </div>
               )}
 
-              {/* Input Area or Auth Notice */}
+              {/* Input Area */}
               <div className="p-3 bg-white border-t border-slate-200 shrink-0">
-                {!user ? (
-                  <div className="flex items-center justify-between gap-3 p-2 bg-slate-50 rounded-xl border border-slate-200">
-                    <p className="text-[11px] text-slate-600">
-                      Sign in to chat with the AI Assistant
-                    </p>
-                    <button
-                      onClick={() => navigate('/login')}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shrink-0"
-                    >
-                      <LogIn className="w-3.5 h-3.5" />
-                      <span>Sign In</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Ask about tasks, points, or rewards..."
-                      disabled={isLoading}
-                      className="flex-1 px-3.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent placeholder:text-slate-400"
-                    />
-                    <button
-                      onClick={() => handleSendMessage()}
-                      disabled={!inputMessage.trim() || isLoading}
-                      aria-label="Send message"
-                      className={`p-2 rounded-xl transition-all cursor-pointer ${
-                        inputMessage.trim() && !isLoading
-                          ? 'bg-emerald-800 hover:bg-emerald-900 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                      }`}
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask about tasks, points, or rewards..."
+                    disabled={isLoading}
+                    className="flex-1 px-3.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent placeholder:text-slate-400"
+                  />
+                  <button
+                    onClick={() => handleSendMessage()}
+                    disabled={!inputMessage.trim() || isLoading}
+                    aria-label="Send message"
+                    className={`p-2 rounded-xl transition-all cursor-pointer ${
+                      inputMessage.trim() && !isLoading
+                        ? 'bg-emerald-800 hover:bg-emerald-900 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
 
                 <div className="flex items-center justify-between text-[10px] text-slate-400 pt-2 px-1">
                   <span>Qwen2.5-3B-Instruct inference</span>

@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { ArrowRight, Sparkles, CheckCircle2, ShieldCheck, Coins, Store, Users, MapPin } from 'lucide-react';
+import heroImage from '../../assets/images/civic_hero_community_1792220538777.jpg';
 
 interface LandingHeroProps {
-  onOpenAuth: () => void;
   onOpenGuide: () => void;
   onSelectTab: (tab: string) => void;
-  isAuthenticated: boolean;
 }
 
-export function LandingHero({ onOpenAuth, onOpenGuide, onSelectTab, isAuthenticated }: LandingHeroProps) {
+export function LandingHero({ onOpenGuide, onSelectTab }: LandingHeroProps) {
   const [imageError, setImageError] = useState(false);
 
   return (
@@ -74,7 +73,7 @@ export function LandingHero({ onOpenAuth, onOpenGuide, onSelectTab, isAuthentica
           <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-slate-900 group flex flex-col justify-end min-h-[340px] sm:min-h-[400px]">
             {!imageError ? (
               <img
-                src="/src/assets/images/civic_hero_community_1792220538777.jpg"
+                src={heroImage}
                 alt="Diverse students volunteering in community garden planting"
                 referrerPolicy="no-referrer"
                 onError={() => setImageError(true)}

@@ -271,18 +271,31 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
+VITE_DEMO_MODE=false
 ```
+
+Without `VITE_DEMO_MODE=true`, the application opens in guest mode and connects to the configured Firebase project without Firebase Authentication. Visitors can browse public tasks and shops, submit pending volunteer proof, and preview the Student, Shopkeeper, and Admin dashboards. Guest identity and selected dashboard role are stored in browser local storage; neither is an authenticated identity.
+
+Guest submission writes are limited by the new Firestore Rules predicate to pending proof for an active task. Because guest IDs are not verified identities, public users can still submit spam or impersonate another guest ID; apply App Check and/or a rate-limited trusted submission service before using a shared public project. The guest UI/API does **not** grant task creation, task moderation, submission approval/rejection, points changes, merchant administration, or reward redemption. Dashboard visibility and the locally selected role are not authorization.
+
+**Do not deploy the current Firestore Rules publicly yet.** They include a legacy client-forgeable test-secret bypass used by the current API implementation for privileged writes. That bypass can undermine the role protections for task/user management, approvals, merchant operations, points, and redemptions. Replace the client Firestore server implementation with a trusted Firebase Admin SDK backend and remove the test bypass before exposing a shared Firebase project. Guest writes are intentionally limited to pending submissions, but this existing bypass means the current deployed rules do not provide that protection as a security boundary.
+
+`VITE_DEMO_MODE=true` opts into browser-local sample data for the existing demonstration workflows. It does not read or write Firestore; this is a separate, explicitly enabled local demo.
+
+The AI task-matching and chat endpoints accept guest requests because they are non-mutating and rate-limited. Task matching uses active Firestore tasks; both use the local Ollama model (`qwen2.5:3b-instruct`). Configure and run Ollama as described above; unavailable services return explicit errors rather than fabricated results.
+
+The guest experience shares public Firebase data. Existing public collection reads may expose records to visitors, and Firestore Rules must be deployed separately for guest submissions to work. Review the deployed rules and use a staging Firebase project for demonstrations. Do not treat the guest role selector as a security boundary or use this configuration for sensitive production data.
 
 ## 🧪 Testing
 
 The following scenarios should be tested before a public demonstration:
 
-- Registration and login.
+- Startup and direct navigation to each guest dashboard without login.
 - Student/helper task submission.
-- Administrative approval and point awards.
-- Merchant onboarding and offer management.
-- Reward redemption and duplicate-redemption prevention.
-- Role-specific navigation and route protection.
+- Administrative approval and point awards using a trusted server identity.
+- Merchant onboarding and offer management using a trusted server identity.
+- Reward redemption and duplicate-redemption prevention using a trusted server identity.
+- Guest task matching and unavailable-service error handling.
 - Unauthorized access attempts.
 - Mobile responsiveness.
 - Build and runtime errors.
